@@ -16,7 +16,7 @@ from four_player_chess.constants import (
 )
 from four_player_chess.pieces import get_pseudo_legal_moves, can_piece_attack_square
 from four_player_chess.precompute import (
-    LEGAL_DEST_NEAR_4P, LEGAL_DEST_FAR_4P, BETWEEN_4P, CAN_MOVE_4P
+    LEGAL_DEST_NEAR_4P, LEGAL_DEST_FAR_4P, BETWEEN_4P, CAN_MOVE_4P, COORD_TO_IDX
 )
 
 
@@ -42,8 +42,9 @@ def is_square_attacked(
     Returns:
         Boolean indicating if square is under attack
     """
-    # Convert target position to linear index
-    target_pos = target_row * BOARD_SIZE + target_col
+    # Convert target position to valid square index (not flat board index!)
+    # The precompute tables use valid square indices (0-159), not flat board indices
+    target_idx = COORD_TO_IDX[target_row, target_col]
     
     # Get all pieces belonging to the attacking player
     piece_owners = board[:, :, CHANNEL_OWNER]
@@ -55,23 +56,27 @@ def is_square_attacked(
     # Use jnp.nonzero with size parameter for JIT compilation
     # Estimate: max 16 pieces per player (typical game has 12-16)
     flat_board = belongs_to_player.flatten()
-    attacker_positions = jnp.nonzero(flat_board, size=16, fill_value=-1)[0]
+    attacker_flat_positions = jnp.nonzero(flat_board, size=16, fill_value=-1)[0]
     
-    def check_attacker(attacker_pos):
+    def check_attacker(attacker_flat_pos):
         """Check if a single attacker can reach the target."""
         # Skip invalid positions (from padding)
-        is_valid_attacker = attacker_pos >= 0
+        is_valid_attacker = attacker_flat_pos >= 0
         
-        # Get piece type at attacker position
-        attacker_row = attacker_pos // BOARD_SIZE
-        attacker_col = attacker_pos % BOARD_SIZE
+        # Get piece type at attacker position (using flat board index)
+        attacker_row = attacker_flat_pos // BOARD_SIZE
+        attacker_col = attacker_flat_pos % BOARD_SIZE
         piece_type = board[attacker_row, attacker_col, CHANNEL_PIECE_TYPE]
         
+        # Convert attacker position to valid square index for precompute table lookup
+        attacker_idx = COORD_TO_IDX[attacker_row, attacker_col]
+        
         # Check if geometrically possible to attack target
-        can_reach = CAN_MOVE_4P[piece_type, attacker_pos, target_pos]
+        # Use valid square indices (0-159) for precompute table access
+        can_reach = CAN_MOVE_4P[piece_type, attacker_idx, target_idx]
         
         # For far moves (sliding pieces), check if path is clear
-        between_squares = BETWEEN_4P[attacker_pos, target_pos]
+        between_squares = BETWEEN_4P[attacker_idx, target_idx]
         
         def check_path(_):
             """Check if path is clear for sliding pieces."""
@@ -104,7 +109,7 @@ def is_square_attacked(
         return is_valid_attacker & can_reach & path_clear
     
     # Check all potential attackers
-    attacks = jax.vmap(check_attacker)(attacker_positions)
+    attacks = jax.vmap(check_attacker)(attacker_flat_positions)
     
     return jnp.any(attacks)
 
@@ -309,7 +314,8 @@ def is_move_legal(
     invalid_piece = wrong_owner | is_empty
     
     # Check if destination is valid
-    invalid_dest = ~valid_mask[dest_row, dest_col]
+    # Note: valid_mask contains int32 values (0 or 1), so convert to bool before negating
+    invalid_dest = valid_mask[dest_row, dest_col] == 0
     
     # Get pseudo-legal moves
     pseudo_legal = get_pseudo_legal_moves(
