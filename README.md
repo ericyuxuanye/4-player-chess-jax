@@ -16,8 +16,8 @@ A JAX-native implementation written by Claude of a 4-player chess environment th
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd env_test
+git clone https://github.com/ericyuxuanye/four-player-chess-jax.git
+cd four-player-chess-jax
 
 # Install dependencies
 pip install -r requirements.txt
@@ -53,6 +53,13 @@ next_state, next_obs, reward, done, info = env.step(subkey, state, action)
 
 # Render the board
 print(env.render(state))
+```
+
+### Interactive Play
+
+Run the interactive play script to manually input moves:
+```bash
+python examples/interactive_play.py
 ```
 
 ### Playing a Test Game
