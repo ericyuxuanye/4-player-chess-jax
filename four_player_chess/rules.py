@@ -10,11 +10,14 @@ import chex
 from typing import Tuple
 
 from four_player_chess.constants import (
-    BOARD_SIZE, EMPTY, KING, PAWN,
+    BOARD_SIZE, EMPTY, KING, PAWN, BISHOP, ROOK, QUEEN,
     CHANNEL_PIECE_TYPE, CHANNEL_OWNER,
     NUM_PLAYERS, INACTIVE_PLAYER
 )
 from four_player_chess.pieces import get_pseudo_legal_moves, can_piece_attack_square
+from four_player_chess.precompute import (
+    LEGAL_DEST_NEAR_4P, LEGAL_DEST_FAR_4P, BETWEEN_4P, CAN_MOVE_4P
+)
 
 
 def is_square_attacked(
@@ -27,6 +30,8 @@ def is_square_attacked(
     """
     Check if a square is attacked by any piece of a given player.
     
+    OPTIMIZED: Uses sparse iteration (only occupied squares) and precomputed tables.
+    
     Args:
         board: Board state
         target_row: Row of square to check
@@ -37,24 +42,71 @@ def is_square_attacked(
     Returns:
         Boolean indicating if square is under attack
     """
-    is_valid = valid_mask > 0
+    # Convert target position to linear index
+    target_pos = target_row * BOARD_SIZE + target_col
+    
+    # Get all pieces belonging to the attacking player
     piece_owners = board[:, :, CHANNEL_OWNER]
     piece_types = board[:, :, CHANNEL_PIECE_TYPE]
     
-    belongs_to_player = (piece_owners == by_player) & (piece_types != EMPTY) & is_valid
+    # Find occupied squares belonging to this player (sparse iteration)
+    belongs_to_player = (piece_owners == by_player) & (piece_types != EMPTY)
     
-    # Create a grid of source coordinates
-    src_rows, src_cols = jnp.mgrid[0:BOARD_SIZE, 0:BOARD_SIZE]
-
-    # Vectorize can_piece_attack_square over all source squares
-    can_attack_all = jax.vmap(
-        can_piece_attack_square, in_axes=(None, 0, 0, None, None, None)
-    )(board, src_rows, src_cols, target_row, target_col, valid_mask)
-
-    # An attack is valid if the piece belongs to the player and can attack the target
-    is_attacking = belongs_to_player & can_attack_all
+    # Use jnp.nonzero with size parameter for JIT compilation
+    # Estimate: max 16 pieces per player (typical game has 12-16)
+    flat_board = belongs_to_player.flatten()
+    attacker_positions = jnp.nonzero(flat_board, size=16, fill_value=-1)[0]
     
-    return jnp.any(is_attacking)
+    def check_attacker(attacker_pos):
+        """Check if a single attacker can reach the target."""
+        # Skip invalid positions (from padding)
+        is_valid_attacker = attacker_pos >= 0
+        
+        # Get piece type at attacker position
+        attacker_row = attacker_pos // BOARD_SIZE
+        attacker_col = attacker_pos % BOARD_SIZE
+        piece_type = board[attacker_row, attacker_col, CHANNEL_PIECE_TYPE]
+        
+        # Check if geometrically possible to attack target
+        can_reach = CAN_MOVE_4P[piece_type, attacker_pos, target_pos]
+        
+        # For far moves (sliding pieces), check if path is clear
+        between_squares = BETWEEN_4P[attacker_pos, target_pos]
+        
+        def check_path(_):
+            """Check if path is clear for sliding pieces."""
+            # Extract piece types along path
+            between_rows = between_squares // BOARD_SIZE
+            between_cols = between_squares % BOARD_SIZE
+            
+            # Check each square in path
+            def is_square_empty(sq_idx):
+                sq = between_squares[sq_idx]
+                # -1 indicates no more squares in path
+                is_path_square = sq >= 0
+                br = between_rows[sq_idx]
+                bc = between_cols[sq_idx]
+                is_empty = board[br, bc, CHANNEL_PIECE_TYPE] == EMPTY
+                return (~is_path_square) | is_empty
+            
+            # All squares in path must be empty
+            path_checks = jax.vmap(is_square_empty)(jnp.arange(12))
+            return jnp.all(path_checks)
+        
+        def skip_path(_):
+            return jnp.bool_(True)
+        
+        # Only check path for sliding pieces (not knights/kings)
+        is_sliding = jnp.isin(piece_type, jnp.array([BISHOP, ROOK, QUEEN]))
+        path_clear = jax.lax.cond(is_sliding, check_path, skip_path, None)
+        
+        # Can attack if: valid attacker, can reach, and path is clear
+        return is_valid_attacker & can_reach & path_clear
+    
+    # Check all potential attackers
+    attacks = jax.vmap(check_attacker)(attacker_positions)
+    
+    return jnp.any(attacks)
 
 
 def is_in_check(
