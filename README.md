@@ -55,13 +55,6 @@ next_state, next_obs, reward, done, info = env.step(subkey, state, action)
 print(env.render(state))
 ```
 
-### Interactive Play
-
-Run the interactive play script to manually input moves:
-```bash
-python examples/interactive_play.py
-```
-
 ### Playing a Test Game
 
 Run the example scripts to see the environment in action:
