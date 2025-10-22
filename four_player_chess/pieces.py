@@ -137,8 +137,12 @@ def get_knight_moves(
         is_valid = jnp.where(in_bounds, valid_mask[new_row, new_col] > 0, False)
         
         # Can move to empty square or capture opponent
+        # Note: Empty squares have owner=0, which conflicts with Red player (also 0)
+        # So we need to check piece type as well
+        target_piece = jnp.where(in_bounds, board[new_row, new_col, CHANNEL_PIECE_TYPE], EMPTY + 1)
         target_owner = jnp.where(in_bounds, board[new_row, new_col, CHANNEL_OWNER], player)
-        can_move = is_valid & (target_owner != player)
+        is_empty_or_opponent = (target_piece == EMPTY) | (target_owner != player)
+        can_move = is_valid & is_empty_or_opponent
         
         moves = jnp.where(can_move, moves.at[new_row, new_col].set(True), moves)
     
@@ -244,8 +248,12 @@ def get_king_moves(
         is_valid = jnp.where(in_bounds, valid_mask[new_row, new_col] > 0, False)
         
         # Can move to empty square or capture opponent
+        # Note: Empty squares have owner=0, which conflicts with Red player (also 0)
+        # So we need to check piece type as well
+        target_piece = jnp.where(in_bounds, board[new_row, new_col, CHANNEL_PIECE_TYPE], EMPTY + 1)
         target_owner = jnp.where(in_bounds, board[new_row, new_col, CHANNEL_OWNER], player)
-        can_move = is_valid & (target_owner != player)
+        is_empty_or_opponent = (target_piece == EMPTY) | (target_owner != player)
+        can_move = is_valid & is_empty_or_opponent
         
         moves = jnp.where(can_move, moves.at[new_row, new_col].set(True), moves)
     

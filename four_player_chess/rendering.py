@@ -1,5 +1,8 @@
 """
-ASCII rendering for 4-player chess environment.
+Rendering utilities for 4-player chess environment.
+
+Defaults to simple ASCII for wide compatibility, but supports
+Unicode chess pieces and ANSI colors when requested.
 """
 
 import jax.numpy as jnp
@@ -8,16 +11,19 @@ import chex
 from four_player_chess.constants import (
     BOARD_SIZE, EMPTY,
     CHANNEL_PIECE_TYPE, CHANNEL_OWNER, CHANNEL_VALID_SQUARE,
-    ASCII_PIECES_SIMPLE, PLAYER_NAMES, PLAYER_COLORS
+    ASCII_PIECES_SIMPLE, ASCII_PIECES,
+    PLAYER_NAMES, PLAYER_COLORS
 )
 
 
-def render_board(state) -> str:
+def render_board(state, *, use_unicode: bool = False, use_color: bool = False) -> str:
     """
     Render the current board state as ASCII art.
     
     Args:
         state: EnvState object
+        use_unicode: When True, render with Unicode chess glyphs.
+        use_color: When True, colorize pieces with ANSI colors.
     
     Returns:
         String representation of the board
@@ -40,7 +46,7 @@ def render_board(state) -> str:
     lines.append("")
     
     # Column labels
-    col_labels = "    " + "".join([f"{i:>3}" for i in range(BOARD_SIZE)])
+    col_labels = "    " + "".join([f"{i:^3}" for i in range(BOARD_SIZE)])
     lines.append(col_labels)
     lines.append("   " + "─" * (BOARD_SIZE * 3 + 1))
     
@@ -62,8 +68,39 @@ def render_board(state) -> str:
                     row_str += " · "
                 else:
                     # Show piece
-                    piece_str = ASCII_PIECES_SIMPLE.get((owner, piece_type), "??")
-                    row_str += f" {piece_str}"
+                    if use_unicode:
+                        glyph = ASCII_PIECES.get((owner, piece_type), "?")
+                        if use_color:
+                            # Keep fixed width: space + colored glyph + space
+                            color_map = {
+                                0: "\x1b[31m",  # Red
+                                1: "\x1b[34m",  # Blue
+                                2: "\x1b[33m",  # Yellow
+                                3: "\x1b[32m",  # Green
+                            }
+                            color = color_map.get(owner, "")
+                            reset = "\x1b[0m"
+                            piece_cell = f" {color}{glyph}{reset} "
+                        else:
+                            # No color: still ensure 3-wide cell
+                            piece_cell = f" {glyph} "
+                    else:
+                        # Simple ASCII two-char codes are inherently width 2
+                        base_piece = ASCII_PIECES_SIMPLE.get((owner, piece_type), "??")
+                        if use_color:
+                            color_map = {
+                                0: "\x1b[31m",
+                                1: "\x1b[34m",
+                                2: "\x1b[33m",
+                                3: "\x1b[32m",
+                            }
+                            color = color_map.get(owner, "")
+                            reset = "\x1b[0m"
+                            piece_cell = f" {color}{base_piece}{reset}"
+                        else:
+                            piece_cell = f" {base_piece}"
+
+                    row_str += piece_cell
         
         lines.append(row_str)
     

@@ -164,7 +164,7 @@ def play_interactive():
     state, obs = env.reset(reset_key)
     
     # Show initial board
-    print(render_board(state))
+    print(render_board(state, use_unicode=True, use_color=True))
     
     move_num = 0
     
@@ -197,7 +197,7 @@ def play_interactive():
             continue
         
         if move_input == 'show' or move_input == 's':
-            print("\n" + render_board(state))
+            print("\n" + render_board(state, use_unicode=True, use_color=True))
             continue
         
         if move_input.startswith('hint'):
@@ -363,7 +363,7 @@ def play_interactive():
         
         # Show updated board
         print()
-        print(render_board(state))
+        print(render_board(state, use_unicode=True, use_color=True))
         
         # Check if game is over
         if done:
@@ -374,7 +374,7 @@ def play_interactive():
             break
     
     print("\nFinal board state:")
-    print(render_board(state))
+    print(render_board(state, use_unicode=True, use_color=True))
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ from four_player_chess.constants import (
     BOARD_SIZE, NUM_PLAYERS, NUM_OBSERVATION_CHANNELS,
     ACTION_SPACE_SIZE, NUM_VALID_SQUARES,
     EMPTY, PAWN, KING, QUEEN, ROOK,
+    RED, BLUE, YELLOW, GREEN,
     CHANNEL_PIECE_TYPE, CHANNEL_OWNER, CHANNEL_HAS_MOVED,
     PROMOTE_QUEEN, PROMOTION_RANKS
 )
@@ -180,8 +181,19 @@ class FourPlayerChessEnv:
         new_board = clear_square(new_board, source_row, source_col)
         
         # Handle pawn promotion - use jnp.where instead of if
+        # RED and YELLOW move vertically (check row), BLUE and GREEN move horizontally (check col)
         promotion_rank = dict_to_jax_array(PROMOTION_RANKS).at[current_player].get(mode="fill", fill_value=-1)
-        is_pawn_promotion = jnp.logical_and(piece_type == PAWN, dest_row == promotion_rank)
+        
+        # Check the correct coordinate based on player orientation
+        # RED (0) and YELLOW (2) move vertically → check dest_row
+        # BLUE (1) and GREEN (3) move horizontally → check dest_col
+        is_vertical_player = (current_player == RED) | (current_player == YELLOW)
+        reached_promotion_square = jnp.where(
+            is_vertical_player,
+            dest_row == promotion_rank,
+            dest_col == promotion_rank
+        )
+        is_pawn_promotion = jnp.logical_and(piece_type == PAWN, reached_promotion_square)
         
         # Apply promotion conditionally
         promoted_piece_type = jnp.where(is_pawn_promotion, QUEEN, piece_type)
