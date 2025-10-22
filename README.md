@@ -88,14 +88,14 @@ The board is a **14×14 cross-shaped grid** with 160 valid squares:
        Yellow (Y)
           ↓
       [3×8 extension]
-    ┌─────────────┐
-    │             │
-    │   8×8 core  │  ← Blue (B)
+     ┌─────────────┐
+     │             │
+     │   8×8 core  │  ← Blue (B)
 Green│             │
 (G) →│   center    │
-    │             │
-    │             │
-    └─────────────┘
+     │             │
+     │             │
+     └─────────────┘
       [3×8 extension]
           ↑
         Red (R)
