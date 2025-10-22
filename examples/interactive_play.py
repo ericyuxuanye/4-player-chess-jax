@@ -162,6 +162,8 @@ def play_interactive():
     # Reset environment
     key, reset_key = random.split(key)
     state, obs = env.reset(reset_key)
+
+    step_fn = jax.jit(env.step)
     
     # Show initial board
     print(render_board(state, use_unicode=True, use_color=True))
@@ -298,7 +300,7 @@ def play_interactive():
         
         # Try to execute the move
         key, step_key = random.split(key)
-        next_state, next_obs, reward, done, info = env.step(step_key, state, action)
+        next_state, next_obs, reward, done, info = step_fn(step_key, state, action)
         
         # Check if move was valid
         if not info['move_valid']:

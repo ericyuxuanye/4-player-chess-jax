@@ -57,12 +57,12 @@ try:
     # JIT compile the wrapper function
     lowered = jax.jit(step_wrapper).lower(subkey, state, action)
     print(lowered.cost_analysis())
-    # jitted_step = lowered.compile()
-    # print("✓ JIT compilation successful!")
-    # new_state, new_obs, reward, done, info = jitted_step(subkey, state, action)
-    # print(f"Move valid: {info['move_valid']}")
-    # print(f"Current player after move: {new_state.current_player}")
-    # print(f"Reward: {reward}")
+    jitted_step = lowered.compile()
+    print("✓ JIT compilation successful!")
+    new_state, new_obs, reward, done, info = jitted_step(subkey, state, action)
+    print(f"Move valid: {info['move_valid']}")
+    print(f"Current player after move: {new_state.current_player}")
+    print(f"Reward: {reward}")
 except Exception as e:
     print(f"✗ JIT compilation failed: {e}")
     import traceback

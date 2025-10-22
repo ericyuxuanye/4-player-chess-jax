@@ -15,6 +15,88 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from four_player_chess import FourPlayerChessEnv
+from four_player_chess.rules import get_all_legal_moves_for_player
+from four_player_chess.utils import encode_action
+
+
+def sample_random_legal_action(key, state, env):
+    """
+    Sample a random legal action for the current player.
+    
+    This function samples uniformly from all legal moves using a JAX-compatible approach.
+    
+    Args:
+        key: JAX random key
+        state: Current game state
+        env: Environment instance
+    
+    Returns:
+        A legal action (encoded as integer), or a random action if no legal moves exist
+    """
+    current_player = state.current_player
+    
+    # Get all legal moves for current player as a boolean array (14, 14, 14, 14)
+    legal_moves = get_all_legal_moves_for_player(
+        state.board,
+        current_player,
+        state.king_positions[current_player],
+        state.player_active,
+        env.valid_mask,
+        state.en_passant_square
+    )
+    
+    # Flatten to (14*14*14*14,) for easier sampling
+    legal_moves_flat = legal_moves.flatten()
+    
+    # Count number of legal moves
+    num_legal = jnp.sum(legal_moves_flat.astype(jnp.int32))
+    
+    # Create a cumulative sum for sampling
+    cumsum = jnp.cumsum(legal_moves_flat.astype(jnp.int32))
+    
+    def sample_legal(_):
+        # Sample a random value between 1 and num_legal
+        sample_val = random.randint(key, (), 1, jnp.maximum(num_legal, 1) + 1)
+        
+        # Find the first position where cumsum >= sample_val
+        chosen_idx = jnp.argmax(cumsum >= sample_val)
+        
+        # Decode the flattened index to (sr, sc, dr, dc)
+        sr = chosen_idx // (14 * 14 * 14)
+        remainder = chosen_idx % (14 * 14 * 14)
+        sc = remainder // (14 * 14)
+        remainder = remainder % (14 * 14)
+        dr = remainder // 14
+        dc = remainder % 14
+        
+        # Get valid square indices for proper encoding
+        mask_flat = env.valid_mask.flatten()
+        valid_indices = jnp.where(mask_flat, size=160, fill_value=-1)[0]
+        
+        # Convert board coordinates to flat board indices
+        source_board_flat = sr * 14 + sc
+        dest_board_flat = dr * 14 + dc
+        
+        # Find which valid square index corresponds to our source and dest
+        source_idx = jnp.argmax(valid_indices == source_board_flat)
+        dest_idx = jnp.argmax(valid_indices == dest_board_flat)
+        
+        # Encode action: source_idx * (160 * 4) + dest_idx * 4 + promotion_type
+        promotion_type = jnp.int32(0)
+        action = source_idx * (160 * 4) + dest_idx * 4 + promotion_type
+        
+        return action
+    
+    def sample_random(_):
+        # Fallback to random action if no legal moves
+        return random.randint(key, (), 0, env.action_space)
+    
+    return jax.lax.cond(
+        num_legal > 0,
+        sample_legal,
+        sample_random,
+        None
+    )
 
 
 def benchmark_parallel_rollouts(num_games: int = 1000, num_steps: int = 50, seed: int = 0):
@@ -66,10 +148,13 @@ def benchmark_parallel_rollouts(num_games: int = 1000, num_steps: int = 50, seed
     
     start_time = time.time()
     
+    # Vectorize the action sampling function
+    sample_action_fn = jax.vmap(lambda k, s: sample_random_legal_action(k, s, env))
+    
     for step in range(num_steps):
-        # Generate random actions for all games
+        # Generate random legal actions for all games
         action_keys = random.split(random.fold_in(key, step), num_games)
-        actions = jax.random.randint(action_keys, (num_games,), 0, env.action_space)
+        actions = sample_action_fn(action_keys, states)
         
         # Step all environments in parallel
         states, observations, rewards, dones, infos = step_fn(step_keys, states, actions)
@@ -147,7 +232,8 @@ def compare_sequential_vs_parallel(num_games: int = 100, num_steps: int = 20):
         
         for step in range(num_steps):
             step_key = random.fold_in(game_key, step)
-            action = random.randint(step_key, (), 0, env.action_space)
+            action_key = random.fold_in(game_key, step * 1000)
+            action = sample_random_legal_action(action_key, state, env)
             state, obs, reward, done, info = env.step(step_key, state, action)
     
     sequential_time = time.time() - start_time
@@ -168,10 +254,12 @@ def compare_sequential_vs_parallel(num_games: int = 100, num_steps: int = 20):
     
     # Step all
     step_fn = jax.vmap(env.step, in_axes=(0, 0, 0))
+    sample_action_fn = jax.vmap(lambda k, s: sample_random_legal_action(k, s, env))
     
     for step in range(num_steps):
         step_keys = random.split(random.fold_in(key, step), num_games)
-        actions = random.randint(step_keys, (num_games,), 0, env.action_space)
+        action_keys = random.split(random.fold_in(key, step * 1000), num_games)
+        actions = sample_action_fn(action_keys, states)
         states, observations, rewards, dones, infos = step_fn(step_keys, states, actions)
     
     parallel_time = time.time() - start_time

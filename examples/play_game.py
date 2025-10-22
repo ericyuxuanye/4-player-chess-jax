@@ -16,6 +16,80 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from four_player_chess import FourPlayerChessEnv
 from four_player_chess.rendering import render_board, print_game_summary
 from four_player_chess.utils import decode_action
+from four_player_chess.rules import get_all_legal_moves_for_player
+
+
+def sample_random_legal_action(key, state, env):
+    """
+    Sample a random legal action for the current player.
+    
+    This function samples uniformly from all legal moves using a JAX-compatible approach.
+    
+    Args:
+        key: JAX random key
+        state: Current game state
+        env: Environment instance
+    
+    Returns:
+        A legal action (encoded as integer), or None if no legal moves exist
+    """
+    current_player = state.current_player
+    
+    # Get all legal moves for current player as a boolean array (14, 14, 14, 14)
+    legal_moves = get_all_legal_moves_for_player(
+        state.board,
+        current_player,
+        state.king_positions[current_player],
+        state.player_active,
+        env.valid_mask,
+        state.en_passant_square
+    )
+    
+    # Flatten to (14*14*14*14,) for easier sampling
+    legal_moves_flat = legal_moves.flatten()
+    
+    # Count number of legal moves
+    num_legal = jnp.sum(legal_moves_flat.astype(jnp.int32))
+    
+    # If no legal moves, return None
+    if int(num_legal) == 0:
+        return None
+    
+    # Create a cumulative sum for sampling
+    cumsum = jnp.cumsum(legal_moves_flat.astype(jnp.int32))
+    
+    # Sample a random value between 1 and num_legal
+    sample_val = random.randint(key, (), 1, int(num_legal) + 1)
+    
+    # Find the first position where cumsum >= sample_val
+    chosen_idx = int(jnp.argmax(cumsum >= sample_val))
+    
+    # Decode the flattened index to (sr, sc, dr, dc)
+    sr = chosen_idx // (14 * 14 * 14)
+    remainder = chosen_idx % (14 * 14 * 14)
+    sc = remainder // (14 * 14)
+    remainder = remainder % (14 * 14)
+    dr = remainder // 14
+    dc = remainder % 14
+    
+    # Now properly encode using the valid square indexing
+    # Get the valid square mask and find valid indices
+    mask_flat = env.valid_mask.flatten()
+    valid_indices = jnp.where(mask_flat, size=160, fill_value=-1)[0]
+    
+    # Convert board coordinates to flat board indices
+    source_board_flat = sr * 14 + sc
+    dest_board_flat = dr * 14 + dc
+    
+    # Find which valid square index corresponds to our source and dest
+    source_idx = int(jnp.argmax(valid_indices == source_board_flat))
+    dest_idx = int(jnp.argmax(valid_indices == dest_board_flat))
+    
+    # Encode action: source_idx (0-159) * (160 * 4) + dest_idx (0-159) * 4 + promotion_type (0-3)
+    promotion_type = 0  # No promotion for simplicity
+    action = source_idx * (160 * 4) + dest_idx * 4 + promotion_type
+    
+    return int(action)
 
 
 def play_random_game(seed: int = 0, max_moves: int = 100, render_every: int = 1):
@@ -49,45 +123,23 @@ def play_random_game(seed: int = 0, max_moves: int = 100, render_every: int = 1)
     
     move_num = 0
     done = False
+
+    step_fn = jax.jit(env.step)
     
     while not done and move_num < max_moves:
         move_num += 1
         
-        # Get random action
-        # For simplicity, we'll just try random actions until we find a valid one
-        max_attempts = 1000
-        action_found = False
+        # Get random legal action
+        key, action_key = random.split(key)
+        action = sample_random_legal_action(action_key, state, env)
         
-        for attempt in range(max_attempts):
-            key, action_key = random.split(key)
-            action = random.randint(action_key, (), 0, env.action_space)
-            
-            # Decode action to check if it's reasonable
-            try:
-                source_row, source_col, dest_row, dest_col, promo = decode_action(
-                    action, env.valid_mask
-                )
-                
-                # Quick sanity check: source must have current player's piece
-                piece_owner = state.board[source_row, source_col, 1]  # CHANNEL_OWNER = 1
-                if piece_owner == state.current_player:
-                    action_found = True
-                    break
-            except:
-                continue
-        
-        if not action_found:
-            print(f"Could not find valid action after {max_attempts} attempts. Ending game.")
+        if action is None:
+            print(f"No legal moves available. Game over.")
             break
         
         # Step environment
         key, step_key = random.split(key)
-        next_state, next_obs, reward, done, info = env.step(step_key, state, action)
-        
-        # Check if move was valid
-        if not info['move_valid']:
-            print(f"Move {move_num}: Invalid move attempted, skipping...")
-            continue
+        next_state, next_obs, reward, done, info = step_fn(step_key, state, action)
         
         # Render every N moves
         if move_num % render_every == 0:
@@ -172,37 +224,17 @@ def play_step_by_step(seed: int = 0):
             print("Quitting game.")
             break
         
-        # Try to find a valid random move
-        max_attempts = 1000
-        action_found = False
+        # Get a random legal move
+        key, action_key = random.split(key)
+        action = sample_random_legal_action(action_key, state, env)
         
-        for attempt in range(max_attempts):
-            key, action_key = random.split(key)
-            action = random.randint(action_key, (), 0, env.action_space)
-            
-            try:
-                source_row, source_col, dest_row, dest_col, promo = decode_action(
-                    action, env.valid_mask
-                )
-                
-                piece_owner = state.board[source_row, source_col, 1]
-                if piece_owner == state.current_player:
-                    action_found = True
-                    break
-            except:
-                continue
-        
-        if not action_found:
-            print(f"Could not find valid action. Game may be over.")
+        if action is None:
+            print(f"No legal moves available. Game may be over.")
             break
         
         # Step environment
         key, step_key = random.split(key)
         next_state, next_obs, reward, done, info = env.step(step_key, state, action)
-        
-        if not info['move_valid']:
-            print("Invalid move, trying again...")
-            continue
         
         # Show move
         source_row, source_col, dest_row, dest_col, promo = decode_action(
