@@ -134,7 +134,7 @@ def is_game_over(player_active: chex.Array, move_count: chex.Numeric, max_moves:
     
     return too_many_moves | not_enough_players
 
-def dict_to_jax_array(d: dict[int, int]) -> jax.Array:
+def dict_to_jax_array(d: dict[int, int]) -> chex.Array:
     """
     Convert a dictionary of int mappings (0-n) to a JAX array.
     """

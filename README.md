@@ -1,6 +1,6 @@
 # 4-Player Chess JAX Environment
 
-A JAX-native implementation of 4-player chess that supports parallel rollouts for end-to-end reinforcement learning training pipelines.
+A JAX-native implementation written by Claude of a 4-player chess environment that supports parallel rollouts for end-to-end reinforcement learning training pipelines.
 
 ## Features
 
@@ -297,20 +297,4 @@ This is a functional prototype. Contributions welcome for:
 - [Chess.com 4-Player Chess Rules](https://www.chess.com/terms/4-player-chess)
 - [JAX Documentation](https://jax.readthedocs.io/)
 - [Gymnax](https://github.com/RobertTLange/gymnax)
-
-## License
-
-MIT License (see LICENSE file)
-
-## Citation
-
-If you use this environment in your research, please cite:
-
-```bibtex
-@software{four_player_chess_jax,
-  title={4-Player Chess JAX Environment},
-  author={Your Name},
-  year={2024},
-  url={https://github.com/yourusername/four-player-chess-jax}
-}
-```
+- [Pgx](https://github.com/sotetsuk/pgx)
