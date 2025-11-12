@@ -217,12 +217,18 @@ class FourPlayerChessEnv:
         
         # Calculate reward for capture - use jnp.where
         is_capture = captured_piece != EMPTY
+
+        # Only give points for capturing pieces from active players
+        # Capturing eliminated players' pieces gives no reward
+        captured_player_active = state.player_active[captured_owner]
+        is_valid_capture = is_capture & captured_player_active
+
         is_promoted_piece = state.promoted_pieces[dest_row, dest_col]
         capture_points = calculate_capture_points(captured_piece, is_promoted_piece)
-        
-        capture_reward = jnp.where(is_capture, jnp.float32(capture_points), jnp.float32(0.0))
+
+        capture_reward = jnp.where(is_valid_capture, jnp.float32(capture_points), jnp.float32(0.0))
         new_scores = jnp.where(
-            is_capture,
+            is_valid_capture,
             state.player_scores.at[current_player].add(capture_points),
             state.player_scores
         )
