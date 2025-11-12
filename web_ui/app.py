@@ -53,13 +53,34 @@ def init_game():
     game_state = state
     obs = obs_data
 
-    # Warm up JIT compilation with a dummy move to avoid delay on first real move
+    # Warm up JIT compilation for both step and get_pseudo_legal_moves
+    from four_player_chess.pieces import get_pseudo_legal_moves
+
+    print("Warming up JIT compilation...")
     dummy_key = jax.random.PRNGKey(999)
-    dummy_action = jnp.int32(0)
+
+    # Warm up get_pseudo_legal_moves with several different positions
     try:
-        _, _, _, _, _ = env.step(dummy_key, state, dummy_action)
+        for row in [12, 3, 1]:
+            for col in [3, 5, 7]:
+                _ = get_pseudo_legal_moves(
+                    state.board,
+                    row, col,
+                    0,  # red player
+                    valid_mask,
+                    state.en_passant_square
+                )
     except:
-        pass  # Dummy move might be invalid, that's ok
+        pass
+
+    # Warm up step function with a valid pawn move (12,3 -> 10,3)
+    try:
+        valid_action = encode_action_simple(12, 3, 10, 3, 0)
+        _, _, _, _, _ = env.step(dummy_key, state, jnp.int32(valid_action))
+    except:
+        pass
+
+    print("JIT warmup complete!")
 
     return state
 
