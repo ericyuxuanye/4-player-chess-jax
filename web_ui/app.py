@@ -127,10 +127,7 @@ def get_valid_moves():
     row = data['row']
     col = data['col']
 
-    from four_player_chess.pieces import get_piece_moves
-
-    # Convert row, col to index
-    from_idx = square_to_index(row, col, valid_mask)
+    from four_player_chess.pieces import get_pseudo_legal_moves
 
     piece_type = int(game_state.board[row, col, 0])
     owner = int(game_state.board[row, col, 1])
@@ -139,15 +136,22 @@ def get_valid_moves():
     if owner != game_state.current_player or piece_type == 0:
         return jsonify({'moves': []})
 
-    # Get possible moves for this piece
-    moves = get_piece_moves(game_state, from_idx)
+    # Get possible moves for this piece (returns 14x14 boolean array)
+    moves = get_pseudo_legal_moves(
+        game_state.board,
+        row,
+        col,
+        game_state.current_player,
+        valid_mask,
+        game_state.en_passant_square
+    )
 
     # Convert to row, col format
     valid_moves = []
-    for move_idx in range(160):
-        if moves[move_idx]:
-            move_row, move_col = index_to_square(move_idx, valid_mask)
-            valid_moves.append({'row': int(move_row), 'col': int(move_col)})
+    for move_row in range(14):
+        for move_col in range(14):
+            if moves[move_row, move_col]:
+                valid_moves.append({'row': int(move_row), 'col': int(move_col)})
 
     return jsonify({'moves': valid_moves})
 
