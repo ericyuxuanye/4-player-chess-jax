@@ -231,12 +231,20 @@ def get_valid_moves():
     for move_row in range(14):
         for move_col in range(14):
             if pseudo_moves[move_row, move_col]:
-                # Simulate the move
+                # Simulate the move - properly update all board channels
+                from four_player_chess.constants import CHANNEL_PIECE_TYPE, CHANNEL_OWNER, CHANNEL_HAS_MOVED
+
                 test_board = game_state.board.copy()
-                test_board = test_board.at[move_row, move_col, 0].set(piece_type)
-                test_board = test_board.at[move_row, move_col, 1].set(game_state.current_player)
-                test_board = test_board.at[row, col, 0].set(0)  # EMPTY
-                test_board = test_board.at[row, col, 1].set(0)
+
+                # Move piece to destination
+                test_board = test_board.at[move_row, move_col, CHANNEL_PIECE_TYPE].set(piece_type)
+                test_board = test_board.at[move_row, move_col, CHANNEL_OWNER].set(game_state.current_player)
+                test_board = test_board.at[move_row, move_col, CHANNEL_HAS_MOVED].set(1)
+
+                # Clear source square
+                test_board = test_board.at[row, col, CHANNEL_PIECE_TYPE].set(0)  # EMPTY
+                test_board = test_board.at[row, col, CHANNEL_OWNER].set(0)
+                test_board = test_board.at[row, col, CHANNEL_HAS_MOVED].set(0)
 
                 # Update king position if we're moving the king
                 from four_player_chess.constants import KING
