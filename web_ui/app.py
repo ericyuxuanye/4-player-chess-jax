@@ -10,7 +10,6 @@ sys.path.append('..')
 from four_player_chess import FourPlayerChessEnv
 from four_player_chess.constants import PIECE_NAMES, PLAYER_NAMES
 from four_player_chess.board import create_valid_square_mask, square_to_index, index_to_square
-from four_player_chess.utils import encode_action
 
 app = Flask(__name__)
 CORS(app)
@@ -21,6 +20,29 @@ rng_key = jax.random.PRNGKey(0)
 game_state = None
 obs = None
 valid_mask = create_valid_square_mask()
+
+
+def encode_action_simple(from_row, from_col, to_row, to_col, promotion):
+    """
+    Simple Python version of encode_action for web server use.
+
+    Action = source_idx * (160 * 4) + dest_idx * 4 + promotion_type
+    """
+    # Convert board positions to flat indices (0-159) using numpy
+    import numpy as np
+    mask_flat = np.array(valid_mask).flatten().astype(np.int32)
+
+    # Source index - count how many valid squares come before this position
+    source_flat = from_row * 14 + from_col
+    source_idx = int(np.sum(mask_flat[:source_flat]))
+
+    # Dest index - count how many valid squares come before this position
+    dest_flat = to_row * 14 + to_col
+    dest_idx = int(np.sum(mask_flat[:dest_flat]))
+
+    # Encode action
+    action = source_idx * (160 * 4) + dest_idx * 4 + promotion
+    return int(action)
 
 
 def init_game():
@@ -96,7 +118,7 @@ def make_move():
     promotion = data.get('promotion', 0)  # Default to queen
 
     # Encode the action
-    action = encode_action(from_row, from_col, to_row, to_col, promotion, valid_mask)
+    action = encode_action_simple(from_row, from_col, to_row, to_col, promotion)
 
     # Execute move
     rng_key, step_key = jax.random.split(rng_key)
