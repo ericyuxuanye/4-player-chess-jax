@@ -127,11 +127,21 @@ def make_move():
         game_state = next_state
         obs = next_obs
 
+        # Convert JAX arrays to Python types
+        def jax_to_python(val):
+            """Convert JAX arrays to Python types."""
+            if hasattr(val, 'tolist'):
+                return val.tolist()
+            elif hasattr(val, 'item'):
+                return val.item()
+            else:
+                return val
+
         return jsonify({
             'state': state_to_dict(next_state),
-            'reward': [float(r) for r in reward],
-            'done': bool(done),
-            'info': {k: (v.tolist() if hasattr(v, 'tolist') else v) for k, v in info.items()}
+            'reward': jax_to_python(reward),
+            'done': jax_to_python(done),
+            'info': {k: jax_to_python(v) for k, v in info.items()}
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 400
