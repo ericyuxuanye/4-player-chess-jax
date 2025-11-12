@@ -55,6 +55,7 @@ def init_game():
 
     # Warm up JIT compilation for both step and get_pseudo_legal_moves
     from four_player_chess.pieces import get_pseudo_legal_moves
+    from four_player_chess.rules import is_in_check
 
     print("Warming up JIT compilation...")
     dummy_key = jax.random.PRNGKey(999)
@@ -70,6 +71,19 @@ def init_game():
                     valid_mask,
                     state.en_passant_square
                 )
+    except:
+        pass
+
+    # Warm up is_in_check function
+    try:
+        for player_id in range(4):
+            _ = is_in_check(
+                state.board,
+                state.king_positions[player_id],
+                player_id,
+                state.player_active,
+                valid_mask
+            )
     except:
         pass
 
@@ -233,6 +247,7 @@ def get_valid_moves():
                 )
 
                 # Check if king would be in check after this move
+                # This checks ALL opponents - if ANY opponent is still checking, it returns True
                 in_check_after = is_in_check(
                     test_board,
                     test_king_pos,
@@ -241,8 +256,11 @@ def get_valid_moves():
                     valid_mask
                 )
 
-                # Only include move if it doesn't leave king in check
-                if not in_check_after:
+                # Explicitly convert JAX boolean to Python bool
+                # Only include move if it doesn't leave king in check from ANY opponent
+                is_still_in_check = bool(in_check_after.item() if hasattr(in_check_after, 'item') else in_check_after)
+
+                if not is_still_in_check:
                     valid_moves.append({'row': int(move_row), 'col': int(move_col)})
 
     return jsonify({'moves': valid_moves})
