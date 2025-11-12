@@ -52,6 +52,15 @@ def init_game():
     state, obs_data = env.reset(reset_key)
     game_state = state
     obs = obs_data
+
+    # Warm up JIT compilation with a dummy move to avoid delay on first real move
+    dummy_key = jax.random.PRNGKey(999)
+    dummy_action = jnp.int32(0)
+    try:
+        _, _, _, _, _ = env.step(dummy_key, state, dummy_action)
+    except:
+        pass  # Dummy move might be invalid, that's ok
+
     return state
 
 
@@ -120,10 +129,13 @@ def make_move():
     # Encode the action
     action = encode_action_simple(from_row, from_col, to_row, to_col, promotion)
 
+    # Convert to JAX array to avoid recompilation
+    action_jax = jnp.int32(action)
+
     # Execute move
     rng_key, step_key = jax.random.split(rng_key)
     try:
-        next_state, next_obs, reward, done, info = env.step(step_key, game_state, action)
+        next_state, next_obs, reward, done, info = env.step(step_key, game_state, action_jax)
         game_state = next_state
         obs = next_obs
 
