@@ -9,6 +9,8 @@ sys.path.append('..')
 
 from four_player_chess import FourPlayerChessEnv
 from four_player_chess.constants import PIECE_NAMES, PLAYER_NAMES
+from four_player_chess.board import create_valid_square_mask, square_to_index, index_to_square
+from four_player_chess.utils import encode_action
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +20,7 @@ env = FourPlayerChessEnv()
 rng_key = jax.random.PRNGKey(0)
 game_state = None
 obs = None
+valid_mask = create_valid_square_mask()
 
 
 def init_game():
@@ -92,17 +95,8 @@ def make_move():
     to_col = data['to_col']
     promotion = data.get('promotion', 0)  # Default to queen
 
-    # Convert board positions to action
-    from four_player_chess.utils import encode_action
-    from four_player_chess.board import pos_to_idx
-
-    from_idx = pos_to_idx(from_row, from_col)
-    to_idx = pos_to_idx(to_row, to_col)
-
-    if from_idx < 0 or to_idx < 0:
-        return jsonify({'error': 'Invalid square'}), 400
-
-    action = encode_action(from_idx, to_idx, promotion)
+    # Encode the action
+    action = encode_action(from_row, from_col, to_row, to_col, promotion, valid_mask)
 
     # Execute move
     rng_key, step_key = jax.random.split(rng_key)
@@ -133,12 +127,10 @@ def get_valid_moves():
     row = data['row']
     col = data['col']
 
-    from four_player_chess.board import pos_to_idx, idx_to_pos
     from four_player_chess.pieces import get_piece_moves
 
-    from_idx = pos_to_idx(row, col)
-    if from_idx < 0:
-        return jsonify({'moves': []})
+    # Convert row, col to index
+    from_idx = square_to_index(row, col, valid_mask)
 
     piece_type = int(game_state.board[row, col, 0])
     owner = int(game_state.board[row, col, 1])
@@ -154,7 +146,7 @@ def get_valid_moves():
     valid_moves = []
     for move_idx in range(160):
         if moves[move_idx]:
-            move_row, move_col = idx_to_pos(move_idx)
+            move_row, move_col = index_to_square(move_idx, valid_mask)
             valid_moves.append({'row': int(move_row), 'col': int(move_col)})
 
     return jsonify({'moves': valid_moves})
