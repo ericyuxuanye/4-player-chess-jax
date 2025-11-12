@@ -193,6 +193,7 @@ def get_valid_moves():
     col = data['col']
 
     from four_player_chess.pieces import get_pseudo_legal_moves
+    from four_player_chess.rules import is_in_check
 
     piece_type = int(game_state.board[row, col, 0])
     owner = int(game_state.board[row, col, 1])
@@ -201,8 +202,8 @@ def get_valid_moves():
     if owner != game_state.current_player or piece_type == 0:
         return jsonify({'moves': []})
 
-    # Get possible moves for this piece (returns 14x14 boolean array)
-    moves = get_pseudo_legal_moves(
+    # Get pseudo-legal moves for this piece (returns 14x14 boolean array)
+    pseudo_moves = get_pseudo_legal_moves(
         game_state.board,
         row,
         col,
@@ -211,12 +212,38 @@ def get_valid_moves():
         game_state.en_passant_square
     )
 
-    # Convert to row, col format
+    # Filter out moves that would leave king in check
     valid_moves = []
     for move_row in range(14):
         for move_col in range(14):
-            if moves[move_row, move_col]:
-                valid_moves.append({'row': int(move_row), 'col': int(move_col)})
+            if pseudo_moves[move_row, move_col]:
+                # Simulate the move
+                test_board = game_state.board.copy()
+                test_board = test_board.at[move_row, move_col, 0].set(piece_type)
+                test_board = test_board.at[move_row, move_col, 1].set(game_state.current_player)
+                test_board = test_board.at[row, col, 0].set(0)  # EMPTY
+                test_board = test_board.at[row, col, 1].set(0)
+
+                # Update king position if we're moving the king
+                from four_player_chess.constants import KING
+                test_king_pos = jnp.where(
+                    piece_type == KING,
+                    jnp.array([move_row, move_col], dtype=jnp.int32),
+                    game_state.king_positions[game_state.current_player]
+                )
+
+                # Check if king would be in check after this move
+                in_check_after = is_in_check(
+                    test_board,
+                    test_king_pos,
+                    game_state.current_player,
+                    game_state.player_active,
+                    valid_mask
+                )
+
+                # Only include move if it doesn't leave king in check
+                if not in_check_after:
+                    valid_moves.append({'row': int(move_row), 'col': int(move_col)})
 
     return jsonify({'moves': valid_moves})
 
