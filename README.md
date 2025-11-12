@@ -78,6 +78,27 @@ python examples/play_game.py --mode auto --max-moves 100 --render-every 5
 - Use `hint <row> <col>` to see valid moves for a piece
 - Type `help` for full instructions
 
+### 🎮 Web UI (NEW!)
+
+Play 4-player chess in your browser with a beautiful, interactive interface!
+
+```bash
+cd web_ui
+./start.sh
+# Or manually: python app.py
+```
+
+Then open **http://localhost:5000** in your browser.
+
+**Features:**
+- 🎨 Beautiful cross-shaped board visualization
+- 🖱️ Click-to-select, click-to-move interface
+- 👥 Real-time game status and player scores
+- ✨ Visual highlighting of valid moves
+- 🏆 Winner detection and game over handling
+
+See [web_ui/README.md](web_ui/README.md) for more details.
+
 ## Architecture
 
 ### Board Structure
