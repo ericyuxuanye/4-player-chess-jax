@@ -217,12 +217,18 @@ class FourPlayerChessEnv:
         
         # Calculate reward for capture - use jnp.where
         is_capture = captured_piece != EMPTY
+
+        # Only give points for capturing pieces from active players
+        # Capturing eliminated players' pieces gives no reward
+        captured_player_active = state.player_active[captured_owner]
+        is_valid_capture = is_capture & captured_player_active
+
         is_promoted_piece = state.promoted_pieces[dest_row, dest_col]
         capture_points = calculate_capture_points(captured_piece, is_promoted_piece)
-        
-        capture_reward = jnp.where(is_capture, jnp.float32(capture_points), jnp.float32(0.0))
+
+        capture_reward = jnp.where(is_valid_capture, jnp.float32(capture_points), jnp.float32(0.0))
         new_scores = jnp.where(
-            is_capture,
+            is_valid_capture,
             state.player_scores.at[current_player].add(capture_points),
             state.player_scores
         )
@@ -236,57 +242,33 @@ class FourPlayerChessEnv:
         # Advance to next player
         next_player = get_next_active_player(current_player, state.player_active)
         
-        # OPTIMIZATION: Only check for checkmate/stalemate when it's likely
-        # This eliminates 704B FLOPs per step in most cases (99% of moves)
-        
-        # Count pieces to determine if we're in late game
-        total_pieces = jnp.sum(new_board[:, :, CHANNEL_PIECE_TYPE] != EMPTY)
-        is_late_game = total_pieces < 20
-        
-        # Check if we captured a major piece
-        captured_major = jnp.isin(captured_piece, jnp.array([QUEEN, ROOK]))
-        
-        # Only do expensive check if: late game, captured major piece, or any capture in late game
-        should_check_elimination = captured_major | (is_late_game & is_capture)
-        
-        # Conditional elimination check (99% of time, this branch is skipped)
-        def check_elimination(_):
-            # Check if next player is in check (cheap operation)
-            in_check = is_in_check(
-                new_board,
-                new_king_positions[next_player],
-                next_player,
-                state.player_active,
-                self.valid_mask
-            )
-            
-            # Only check for legal moves if necessary (expensive operation - 352B FLOPs)
-            has_moves = has_legal_moves(
-                new_board,
-                next_player,
-                new_king_positions[next_player],
-                state.player_active,
-                self.valid_mask,
-                new_en_passant
-            )
-            
-            # Checkmate = in check AND no legal moves
-            is_checkmated = in_check & (~has_moves)
-            
-            # Stalemate = NOT in check AND no legal moves
-            is_stalemated = (~in_check) & (~has_moves)
-            
-            return is_checkmated, is_stalemated
-        
-        def skip_elimination(_):
-            return jnp.bool_(False), jnp.bool_(False)
-        
-        is_next_checkmated, is_next_stalemated = jax.lax.cond(
-            should_check_elimination,
-            check_elimination,
-            skip_elimination,
-            None
+        # Always check for checkmate/stalemate after every move
+        # This ensures we never miss an elimination situation
+
+        # Check if next player is in check (relatively cheap operation)
+        in_check = is_in_check(
+            new_board,
+            new_king_positions[next_player],
+            next_player,
+            state.player_active,
+            self.valid_mask
         )
+
+        # Check if next player has legal moves (expensive but necessary)
+        has_moves = has_legal_moves(
+            new_board,
+            next_player,
+            new_king_positions[next_player],
+            state.player_active,
+            self.valid_mask,
+            new_en_passant
+        )
+
+        # Checkmate = in check AND no legal moves
+        is_next_checkmated = in_check & (~has_moves)
+
+        # Stalemate = NOT in check AND no legal moves
+        is_next_stalemated = (~in_check) & (~has_moves)
         
         # Handle elimination - use jnp.where for conditional updates
         is_eliminated = jnp.logical_or(is_next_checkmated, is_next_stalemated)
