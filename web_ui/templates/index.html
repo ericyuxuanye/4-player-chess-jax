@@ -476,6 +476,8 @@
                 if (response.ok) {
                     const data = await response.json();
                     gameState = data.state;
+                    selectedSquare = null;
+                    validMoves = [];
                     updateBoard();
                 } else {
                     const error = await response.json();
