@@ -208,9 +208,12 @@ def get_valid_moves():
 
     from four_player_chess.pieces import get_pseudo_legal_moves
     from four_player_chess.rules import is_in_check
+    from four_player_chess.constants import PIECE_NAMES
 
     piece_type = int(game_state.board[row, col, 0])
     owner = int(game_state.board[row, col, 1])
+
+    print(f"\n=== DEBUG: Getting valid moves for {PIECE_NAMES.get(piece_type, 'Unknown')} at ({row}, {col}), owner={PLAYER_NAMES.get(owner, 'Unknown')}")
 
     # Check if it's this player's piece
     if owner != game_state.current_player or piece_type == 0:
@@ -226,8 +229,12 @@ def get_valid_moves():
         game_state.en_passant_square
     )
 
+    pseudo_count = int(jnp.sum(pseudo_moves))
+    print(f"   Found {pseudo_count} pseudo-legal moves")
+
     # Filter out moves that would leave king in check
     valid_moves = []
+    filtered_count = 0
     for move_row in range(14):
         for move_col in range(14):
             if pseudo_moves[move_row, move_col]:
@@ -237,6 +244,9 @@ def get_valid_moves():
                 test_board = game_state.board.copy()
 
                 # Move piece to destination
+                captured_piece = int(test_board[move_row, move_col, CHANNEL_PIECE_TYPE])
+                captured_owner = int(test_board[move_row, move_col, CHANNEL_OWNER])
+
                 test_board = test_board.at[move_row, move_col, CHANNEL_PIECE_TYPE].set(piece_type)
                 test_board = test_board.at[move_row, move_col, CHANNEL_OWNER].set(game_state.current_player)
                 test_board = test_board.at[move_row, move_col, CHANNEL_HAS_MOVED].set(1)
@@ -268,8 +278,15 @@ def get_valid_moves():
                 # Only include move if it doesn't leave king in check from ANY opponent
                 is_still_in_check = bool(in_check_after.item() if hasattr(in_check_after, 'item') else in_check_after)
 
-                if not is_still_in_check:
+                if is_still_in_check:
+                    filtered_count += 1
+                    if captured_piece > 0:
+                        print(f"   FILTERED: ({row},{col}) -> ({move_row},{move_col}) capturing {PIECE_NAMES.get(captured_piece, 'Unknown')} (owner={PLAYER_NAMES.get(captured_owner, 'Unknown')}) - would leave king in check")
+                else:
                     valid_moves.append({'row': int(move_row), 'col': int(move_col)})
+
+    print(f"   Filtered out {filtered_count} moves that would leave king in check")
+    print(f"   Final valid moves: {len(valid_moves)}")
 
     return jsonify({'moves': valid_moves})
 
