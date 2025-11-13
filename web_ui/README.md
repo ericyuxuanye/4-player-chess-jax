@@ -23,8 +23,18 @@ A beautiful, interactive web interface for playing 4-player chess!
    python app.py
    ```
 
+   Or use a custom port:
+   ```bash
+   python app.py --port 3000
+   ```
+
+   Or set via environment variable:
+   ```bash
+   PORT=3000 python app.py
+   ```
+
 3. **Open your browser:**
-   Navigate to `http://localhost:5000`
+   Navigate to `http://localhost:8080` (or your custom port)
 
 4. **Play the game:**
    - Click on a piece to select it (must be your turn and your color)

@@ -1,5 +1,7 @@
 """Flask web server for 4-player chess UI."""
 import json
+import os
+import argparse
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import jax
@@ -15,11 +17,19 @@ app = Flask(__name__)
 CORS(app)
 
 # Global game state
-env = FourPlayerChessEnv()
+env = None
 rng_key = jax.random.PRNGKey(0)
 game_state = None
 obs = None
 valid_mask = create_valid_square_mask()
+
+
+def get_env():
+    """Lazy-load the environment to avoid expensive initialization at import time."""
+    global env
+    if env is None:
+        env = FourPlayerChessEnv()
+    return env
 
 
 def encode_action_simple(from_row, from_col, to_row, to_col, promotion):
@@ -49,7 +59,7 @@ def init_game():
     """Initialize a new game."""
     global game_state, obs, rng_key
     rng_key, reset_key = jax.random.split(rng_key)
-    state, obs_data = env.reset(reset_key)
+    state, obs_data = get_env().reset(reset_key)
     game_state = state
     obs = obs_data
 
@@ -90,7 +100,7 @@ def init_game():
     # Warm up step function with a valid pawn move (12,3 -> 10,3)
     try:
         valid_action = encode_action_simple(12, 3, 10, 3, 0)
-        _, _, _, _, _ = env.step(dummy_key, state, jnp.int32(valid_action))
+        _, _, _, _, _ = get_env().step(dummy_key, state, jnp.int32(valid_action))
     except:
         pass
 
@@ -170,7 +180,7 @@ def make_move():
     # Execute move
     rng_key, step_key = jax.random.split(rng_key)
     try:
-        next_state, next_obs, reward, done, info = env.step(step_key, game_state, action_jax)
+        next_state, next_obs, reward, done, info = get_env().step(step_key, game_state, action_jax)
         game_state = next_state
         obs = next_obs
 
@@ -275,7 +285,16 @@ def get_valid_moves():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='4-Player Chess Web UI')
+    parser.add_argument('--port', type=int, default=None,
+                        help='Port to run the server on (default: 8080, or use PORT env var)')
+    parser.add_argument('--host', type=str, default='0.0.0.0',
+                        help='Host to bind to (default: 0.0.0.0)')
+    args = parser.parse_args()
+
+    # Priority: command-line arg > environment variable > default (8080)
+    port = args.port or int(os.environ.get('PORT', 8080))
+
     print("Starting 4-Player Chess Web UI...")
-    print("Open http://localhost:5000 in your browser")
-    init_game()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print(f"Open http://localhost:{port} in your browser")
+    app.run(debug=True, host=args.host, port=port)
