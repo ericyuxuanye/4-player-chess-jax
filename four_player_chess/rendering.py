@@ -45,8 +45,13 @@ def render_board(state, *, use_unicode: bool = False, use_color: bool = False) -
     lines.append(score_line)
     lines.append("")
     
-    # Column labels
-    col_labels = "    " + "".join([f"{i:^3}" for i in range(BOARD_SIZE)])
+    # Column labels (0-2, a-h for 3-10, 11-13)
+    def col_label(i):
+        if 3 <= i <= 10:
+            return chr(ord('a') + i - 3)  # Map 3-10 to a-h
+        return str(i)
+
+    col_labels = "    " + "".join([f"{col_label(i):^3}" for i in range(BOARD_SIZE)])
     lines.append(col_labels)
     lines.append("   " + "─" * (BOARD_SIZE * 3 + 1))
     
@@ -108,16 +113,21 @@ def render_board(state, *, use_unicode: bool = False, use_color: bool = False) -
     lines.append("")
     
     # Show king positions
+    def format_col(c):
+        if 3 <= c <= 10:
+            return chr(ord('a') + c - 3)
+        return str(c)
+
     lines.append("King Positions:")
     for i in range(4):
         if state.player_active[i]:
             kr, kc = int(state.king_positions[i, 0]), int(state.king_positions[i, 1])
-            lines.append(f"  {PLAYER_COLORS[i]} {PLAYER_NAMES[i]}: ({kr}, {kc})")
+            lines.append(f"  {PLAYER_COLORS[i]} {PLAYER_NAMES[i]}: ({format_col(kc)}{kr})")
     
     # Show en passant if any
     ep_row, ep_col = int(state.en_passant_square[0]), int(state.en_passant_square[1])
     if ep_row >= 0 and ep_col >= 0:
-        lines.append(f"En Passant Square: ({ep_row}, {ep_col})")
+        lines.append(f"En Passant Square: {format_col(ep_col)}{ep_row}")
     
     lines.append("")
     return "\n".join(lines)

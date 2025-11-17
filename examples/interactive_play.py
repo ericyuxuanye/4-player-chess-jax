@@ -27,20 +27,24 @@ def print_help():
 ╚═══════════════════════════════════════════════════════════════╝
 
 MOVE FORMAT:
-  Enter moves as: source_row,source_col,dest_row,dest_col
-  Example: 12,3,10,3  (moves piece from (12,3) to (10,3))
+  Enter moves in chess notation: <source>,<dest>
+  Example: e12,e10  (moves piece from e12 to e10)
+
+  You can also use the legacy format:
+  Example: 12,7,10,7  (row,col,row,col)
 
 COMMANDS:
   help     - Show this help message
   show     - Redisplay the current board
   quit     - Exit the game
   hint     - Show valid moves for a piece
-  
+
 COORDINATES:
-  - Rows: 0-13 (top to bottom)
-  - Cols: 0-13 (left to right)
+  - Rows: 0-13 (numbers on the left)
+  - Cols: a-h for main columns (3-10), or 0-2, 11-13 for extensions
   - Look at the board labels to find coordinates
-  
+  - Format: column+row (e.g., e12, d7, a10)
+
 PLAYERS:
   🔴 Red (0)    - Bottom (rows 11-13)
   🔵 Blue (1)   - Right (cols 11-13)
@@ -52,6 +56,15 @@ TIPS:
   - Invalid moves will be rejected and you can try again
   - Empty squares are shown as ·
     """)
+
+
+def format_coord(col, row):
+    """Format a coordinate in chess notation (e.g., e12)."""
+    if 3 <= col <= 10:
+        col_str = chr(ord('a') + col - 3)
+    else:
+        col_str = str(col)
+    return f"{col_str}{row}"
 
 
 def get_piece_at(board, row, col):
@@ -69,9 +82,9 @@ def show_available_moves_hint(state, source_row, source_col):
     piece_type, owner = get_piece_at(state.board, source_row, source_col)
     
     if piece_type == EMPTY:
-        print(f"  No piece at ({source_row},{source_col})")
+        print(f"  No piece at {format_coord(source_col, source_row)}")
         return
-    
+
     if owner != state.current_player:
         print(f"  That piece belongs to player {owner}, not player {int(state.current_player)}")
         return
@@ -93,39 +106,84 @@ def show_available_moves_hint(state, source_row, source_col):
                 destinations.append((r, c))
     
     if destinations:
-        print(f"\n  Possible moves for piece at ({source_row},{source_col}):")
+        print(f"\n  Possible moves for piece at {format_coord(source_col, source_row)}:")
         for r, c in destinations[:20]:  # Show first 20
-            print(f"    -> ({r},{c})")
+            print(f"    -> {format_coord(c, r)}")
         if len(destinations) > 20:
             print(f"    ... and {len(destinations) - 20} more")
     else:
-        print(f"  No legal moves for piece at ({source_row},{source_col})")
+        print(f"  No legal moves for piece at {format_coord(source_col, source_row)}")
 
 
 def parse_move(move_str):
     """
     Parse a move string into coordinates.
-    
+
+    Supports two formats:
+    1. Chess notation: e13,e10 (col+row for source and dest)
+    2. Legacy format: 13,7,10,7 (row,col,row,col)
+
     Returns:
         Tuple of (source_row, source_col, dest_row, dest_col) or None if invalid
     """
+    def parse_col(col_str):
+        """Parse a column - either a letter (a-h for cols 3-10) or a number."""
+        col_str = col_str.strip().lower()
+        if len(col_str) == 1 and 'a' <= col_str <= 'h':
+            return ord(col_str) - ord('a') + 3  # a=3, b=4, ..., h=10
+        try:
+            col = int(col_str)
+            return col if 0 <= col < 14 else None
+        except:
+            return None
+
+    def parse_square(square_str):
+        """Parse a square like 'e13' or '7,13' into (row, col)."""
+        square_str = square_str.strip()
+
+        # Try chess notation (letter+number like 'e13')
+        if len(square_str) >= 2:
+            if square_str[0].isalpha():
+                col = parse_col(square_str[0])
+                if col is not None:
+                    try:
+                        row = int(square_str[1:])
+                        if 0 <= row < 14:
+                            return row, col
+                    except:
+                        pass
+
+        return None
+
     try:
         parts = move_str.strip().split(',')
-        if len(parts) != 4:
-            return None
-        
-        source_row = int(parts[0].strip())
-        source_col = int(parts[1].strip())
-        dest_row = int(parts[2].strip())
-        dest_col = int(parts[3].strip())
-        
-        # Validate ranges
-        if not (0 <= source_row < 14 and 0 <= source_col < 14):
-            return None
-        if not (0 <= dest_row < 14 and 0 <= dest_col < 14):
-            return None
-        
-        return source_row, source_col, dest_row, dest_col
+
+        # Try new format: e13,e10 (2 parts)
+        if len(parts) == 2:
+            source = parse_square(parts[0])
+            dest = parse_square(parts[1])
+            if source and dest:
+                return source[0], source[1], dest[0], dest[1]
+
+        # Try legacy format: 13,7,10,7 (4 parts)
+        if len(parts) == 4:
+            try:
+                source_row = int(parts[0].strip())
+                source_col = int(parts[1].strip())
+                dest_row = int(parts[2].strip())
+                dest_col = int(parts[3].strip())
+
+                # Validate ranges
+                if not (0 <= source_row < 14 and 0 <= source_col < 14):
+                    return None
+                if not (0 <= dest_row < 14 and 0 <= dest_col < 14):
+                    return None
+
+                return source_row, source_col, dest_row, dest_col
+            except:
+                pass
+
+        return None
     except:
         return None
 
@@ -235,17 +293,18 @@ def play_interactive():
         # Parse move
         parsed = parse_move(move_input)
         if parsed is None:
-            print("❌ Invalid move format. Use: source_row,source_col,dest_row,dest_col")
-            print("   Example: 12,3,10,3")
+            print("❌ Invalid move format. Use chess notation: <source>,<dest>")
+            print("   Example: e12,e10")
+            print("   Or legacy format: 12,7,10,7 (row,col,row,col)")
             continue
         
         source_row, source_col, dest_row, dest_col = parsed
         
         # Check if there's a piece at source
         piece_type, piece_owner = get_piece_at(state.board, source_row, source_col)
-        
+
         if piece_type == 0:  # EMPTY
-            print(f"❌ No piece at ({source_row},{source_col})")
+            print(f"❌ No piece at {format_coord(source_col, source_row)}")
             continue
         
         if piece_owner != current_player:
@@ -291,7 +350,7 @@ def play_interactive():
             continue
         
         # Show what we're trying to do
-        print(f"\n🔍 Attempting move: {PLAYER_NAMES[current_player]} piece from ({source_row},{source_col}) to ({dest_row},{dest_col})")
+        print(f"\n🔍 Attempting move: {PLAYER_NAMES[current_player]} piece from {format_coord(source_col, source_row)} to {format_coord(dest_col, dest_row)}")
         
         # Show piece info
         from four_player_chess.constants import PIECE_NAMES
@@ -339,7 +398,7 @@ def play_interactive():
                 if valid_dests:
                     print(f"   Valid destinations for this piece (showing first 10):")
                     for r, c in valid_dests[:10]:
-                        print(f"      -> ({r},{c})")
+                        print(f"      -> {format_coord(c, r)}")
                     if len(valid_dests) > 10:
                         print(f"      ... and {len(valid_dests) - 10} more")
                 else:
@@ -352,8 +411,8 @@ def play_interactive():
         # Move was successful!
         move_num += 1
         state = next_state
-        
-        print(f"\n✅ Move executed: ({source_row},{source_col}) → ({dest_row},{dest_col})")
+
+        print(f"\n✅ Move executed: {format_coord(source_col, source_row)} → {format_coord(dest_col, dest_row)}")
         if reward > 0:
             print(f"   🎉 Reward: +{float(reward):.0f} points!")
         
