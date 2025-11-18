@@ -284,6 +284,48 @@ def get_valid_moves():
     return jsonify({'moves': valid_moves})
 
 
+@app.route('/api/debug_state', methods=['GET'])
+def get_debug_state():
+    """Get comprehensive debug state including all game details."""
+    global game_state
+
+    if game_state is None:
+        return jsonify({'error': 'Game not initialized'}), 400
+
+    # Convert all game state to JSON-serializable format
+    debug_info = {
+        'basic_state': state_to_dict(game_state),
+        'detailed_state': {
+            'current_player': int(game_state.current_player),
+            'move_count': int(game_state.move_count),
+            'player_scores': [int(s) for s in game_state.player_scores],
+            'player_active': [bool(a) for a in game_state.player_active],
+            'en_passant_square': [int(x) for x in game_state.en_passant_square],
+            'king_positions': [[int(x) for x in pos] for pos in game_state.king_positions],
+            'castling_rights': [[bool(r) for r in rights] for rights in game_state.castling_rights],
+            'last_capture_move': int(game_state.last_capture_move),
+        },
+        'board_details': []
+    }
+
+    # Add detailed board information for each square with a piece
+    for row in range(14):
+        for col in range(14):
+            piece_type = int(game_state.board[row, col, 0])
+            if piece_type > 0:  # If there's a piece
+                debug_info['board_details'].append({
+                    'position': [row, col],
+                    'piece_type': piece_type,
+                    'piece_name': PIECE_NAMES.get(piece_type, 'Unknown'),
+                    'owner': int(game_state.board[row, col, 1]),
+                    'owner_name': PLAYER_NAMES[int(game_state.board[row, col, 1])],
+                    'has_moved': bool(game_state.board[row, col, 2]),
+                    'is_promoted': bool(game_state.promoted_pieces[row, col])
+                })
+
+    return jsonify(debug_info)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='4-Player Chess Web UI')
     parser.add_argument('--port', type=int, default=None,
