@@ -1,0 +1,1056 @@
+{
+  "basic_state": {
+    "active_players": [
+      true,
+      true,
+      true,
+      true
+    ],
+    "board": [
+      [
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 2,
+          "piece": 4,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 3,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 6,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 5,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 3,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 4,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        }
+      ],
+      [
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        }
+      ],
+      [
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 4,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 2,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 4,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 2,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 3,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 3,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 6,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 5,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 5,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 6,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 3,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 3,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 5,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 3,
+          "piece": 4,
+          "valid": true
+        },
+        {
+          "owner": 3,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 1,
+          "piece": 4,
+          "valid": true
+        }
+      ],
+      [
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        }
+      ],
+      [
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 1,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        }
+      ],
+      [
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 4,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 3,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 6,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 3,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 2,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 4,
+          "valid": true
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        },
+        {
+          "owner": 0,
+          "piece": 0,
+          "valid": false
+        }
+      ]
+    ],
+    "current_player": 0,
+    "game_over": false,
+    "move_count": 8,
+    "scores": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  "board_details": [
+    {
+      "has_moved": false,
+      "is_promoted": false,
+      "owner": 2,
+      "owner_name": "Yellow",
+      "piece_name": "Rook",
+      "piece_type": 4,
+      "position": [
+        0,
+        3
+      ]
+    },
+    {
+      "has_moved": true,
+      "is_promoted": false,
+      "owner": 0,
+      "owner_name": "Red",
+      "piece_name": "Queen",
+      "piece_type": 5,
+      "position": [
+        9,
+        10
+      ]
+    }
+  ],
+  "move_history": []
+}
