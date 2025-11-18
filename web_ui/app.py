@@ -312,6 +312,118 @@ def get_valid_moves():
     return jsonify({'moves': valid_moves})
 
 
+@app.route('/api/debug_move_validation', methods=['POST'])
+def debug_move_validation():
+    """Debug why a specific move is or isn't valid."""
+    global game_state
+
+    if game_state is None:
+        return jsonify({'error': 'Game not initialized'}), 400
+
+    data = request.json
+    from_row = data['from_row']
+    from_col = data['from_col']
+    to_row = data['to_row']
+    to_col = data['to_col']
+
+    from four_player_chess.pieces import get_pseudo_legal_moves
+    from four_player_chess.rules import is_in_check, is_square_attacked
+    from four_player_chess.constants import CHANNEL_PIECE_TYPE, CHANNEL_OWNER, CHANNEL_HAS_MOVED, KING
+
+    piece_type = int(game_state.board[from_row, from_col, 0])
+    owner = int(game_state.board[from_row, from_col, 1])
+
+    debug_info = {
+        'piece': {
+            'type': piece_type,
+            'type_name': PIECE_NAMES.get(piece_type, 'Unknown'),
+            'owner': owner,
+            'owner_name': PLAYER_NAMES[owner],
+            'position': [from_row, from_col]
+        },
+        'destination': [to_row, to_col],
+        'current_player': int(game_state.current_player),
+        'checks': {}
+    }
+
+    # Check 1: Ownership
+    owns_piece = owner == game_state.current_player and piece_type > 0
+    debug_info['checks']['owns_piece'] = owns_piece
+
+    if not owns_piece:
+        return jsonify(debug_info)
+
+    # Check 2: Pseudo-legal
+    pseudo_moves = get_pseudo_legal_moves(
+        game_state.board,
+        from_row,
+        from_col,
+        game_state.current_player,
+        valid_mask,
+        game_state.en_passant_square
+    )
+    is_pseudo_legal = bool(pseudo_moves[to_row, to_col])
+    debug_info['checks']['is_pseudo_legal'] = is_pseudo_legal
+
+    if not is_pseudo_legal:
+        return jsonify(debug_info)
+
+    # Check 3: Would leave king in check?
+    test_board = game_state.board.copy()
+
+    # Simulate move
+    test_board = test_board.at[to_row, to_col, CHANNEL_PIECE_TYPE].set(piece_type)
+    test_board = test_board.at[to_row, to_col, CHANNEL_OWNER].set(game_state.current_player)
+    test_board = test_board.at[to_row, to_col, CHANNEL_HAS_MOVED].set(1)
+
+    test_board = test_board.at[from_row, from_col, CHANNEL_PIECE_TYPE].set(0)
+    test_board = test_board.at[from_row, from_col, CHANNEL_OWNER].set(0)
+    test_board = test_board.at[from_row, from_col, CHANNEL_HAS_MOVED].set(0)
+
+    # Update king position if moving king
+    test_king_pos = jnp.where(
+        piece_type == KING,
+        jnp.array([to_row, to_col], dtype=jnp.int32),
+        game_state.king_positions[game_state.current_player]
+    )
+
+    debug_info['king_position_after_move'] = [int(test_king_pos[0]), int(test_king_pos[1])]
+
+    # Check if in check
+    in_check_after = is_in_check(
+        test_board,
+        test_king_pos,
+        game_state.current_player,
+        game_state.player_active,
+        valid_mask
+    )
+
+    debug_info['checks']['would_be_in_check'] = bool(in_check_after)
+
+    # If in check, find out which opponent(s) are attacking
+    if in_check_after:
+        attackers = []
+        for opponent in range(4):
+            if opponent != game_state.current_player and game_state.player_active[opponent]:
+                attacked = is_square_attacked(
+                    test_board,
+                    test_king_pos[0],
+                    test_king_pos[1],
+                    opponent,
+                    valid_mask
+                )
+                if attacked:
+                    attackers.append({
+                        'player': opponent,
+                        'player_name': PLAYER_NAMES[opponent]
+                    })
+        debug_info['attackers'] = attackers
+
+    debug_info['is_valid_move'] = owns_piece and is_pseudo_legal and not in_check_after
+
+    return jsonify(debug_info)
+
+
 @app.route('/api/debug_state', methods=['GET'])
 def get_debug_state():
     """Get comprehensive debug state including all game details."""
