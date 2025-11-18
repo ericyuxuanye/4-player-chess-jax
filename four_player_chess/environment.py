@@ -232,15 +232,46 @@ class FourPlayerChessEnv:
             state.player_scores.at[current_player].add(capture_points),
             state.player_scores
         )
-        
+
+        # CRITICAL: Check if a king was captured and eliminate that player
+        # This must happen BEFORE checking for checkmate/stalemate of other players
+        is_king_captured = is_valid_capture & (captured_piece == KING)
+
+        # If king was captured, eliminate the captured player
+        player_active_after_king_capture = jnp.where(
+            is_king_captured,
+            state.player_active.at[captured_owner].set(False),
+            state.player_active
+        )
+
+        # Mark captured king position as invalid
+        captured_king_invalid_pos = jnp.array([-1, -1], dtype=jnp.int32)
+        king_positions_after_capture = jnp.where(
+            is_king_captured,
+            new_king_positions.at[captured_owner].set(captured_king_invalid_pos),
+            new_king_positions
+        )
+        new_king_positions = king_positions_after_capture
+
+        # Award checkmate bonus (20 points) for capturing a king
+        king_capture_bonus = jnp.where(is_king_captured, jnp.float32(20.0), jnp.float32(0.0))
+        new_scores = jnp.where(
+            is_king_captured,
+            new_scores.at[current_player].add(20),
+            new_scores
+        )
+
+        # Add king capture bonus to reward
+        capture_reward = capture_reward + king_capture_bonus
+
         # Update move counter
         new_move_count = state.move_count + 1
-        
+
         # Clear en passant (simplified - not fully implementing en passant for now)
         new_en_passant = jnp.array([-1, -1], dtype=jnp.int32)
-        
-        # Advance to next player
-        next_player = get_next_active_player(current_player, state.player_active)
+
+        # Advance to next player (using updated player_active that accounts for king capture)
+        next_player = get_next_active_player(current_player, player_active_after_king_capture)
         
         # Always check for checkmate/stalemate after every move
         # This ensures we never miss an elimination situation
@@ -250,7 +281,7 @@ class FourPlayerChessEnv:
             new_board,
             new_king_positions[next_player],
             next_player,
-            state.player_active,
+            player_active_after_king_capture,
             self.valid_mask
         )
 
@@ -259,7 +290,7 @@ class FourPlayerChessEnv:
             new_board,
             next_player,
             new_king_positions[next_player],
-            state.player_active,
+            player_active_after_king_capture,
             self.valid_mask,
             new_en_passant
         )
@@ -272,12 +303,12 @@ class FourPlayerChessEnv:
         
         # Handle elimination - use jnp.where for conditional updates
         is_eliminated = jnp.logical_or(is_next_checkmated, is_next_stalemated)
-        
-        # Conditionally eliminate the next player
+
+        # Conditionally eliminate the next player (starting from player_active that already accounts for king capture)
         new_player_active = jnp.where(
             is_eliminated,
-            state.player_active.at[next_player].set(False),
-            state.player_active
+            player_active_after_king_capture.at[next_player].set(False),
+            player_active_after_king_capture
         )
         
         # Calculate elimination bonus
