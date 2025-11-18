@@ -22,6 +22,7 @@ rng_key = jax.random.PRNGKey(0)
 game_state = None
 obs = None
 valid_mask = create_valid_square_mask()
+move_history = []  # List of all moves made in the current game
 
 
 def get_env():
@@ -57,11 +58,12 @@ def encode_action_simple(from_row, from_col, to_row, to_col, promotion):
 
 def init_game():
     """Initialize a new game."""
-    global game_state, obs, rng_key
+    global game_state, obs, rng_key, move_history
     rng_key, reset_key = jax.random.split(rng_key)
     state, obs_data = get_env().reset(reset_key)
     game_state = state
     obs = obs_data
+    move_history = []  # Reset move history for new game
 
     # Warm up JIT compilation for both step and get_pseudo_legal_moves
     from four_player_chess.pieces import get_pseudo_legal_moves
@@ -162,7 +164,7 @@ def get_state():
 @app.route('/api/move', methods=['POST'])
 def make_move():
     """Make a move."""
-    global game_state, obs, rng_key
+    global game_state, obs, rng_key, move_history
 
     data = request.json
     from_row = data['from_row']
@@ -170,6 +172,13 @@ def make_move():
     to_row = data['to_row']
     to_col = data['to_col']
     promotion = data.get('promotion', 0)  # Default to queen
+
+    # Capture move information before executing
+    piece_type = int(game_state.board[from_row, from_col, 0])
+    moving_player = int(game_state.current_player)
+    captured_piece = int(game_state.board[to_row, to_col, 0])
+    captured_owner = int(game_state.board[to_row, to_col, 1]) if captured_piece > 0 else None
+    move_number = int(game_state.move_count) + 1
 
     # Encode the action
     action = encode_action_simple(from_row, from_col, to_row, to_col, promotion)
@@ -181,6 +190,25 @@ def make_move():
     rng_key, step_key = jax.random.split(rng_key)
     try:
         next_state, next_obs, reward, done, info = get_env().step(step_key, game_state, action_jax)
+
+        # Log the move
+        move_log = {
+            'move_number': move_number,
+            'player': moving_player,
+            'player_name': PLAYER_NAMES[moving_player],
+            'from': [from_row, from_col],
+            'to': [to_row, to_col],
+            'piece': piece_type,
+            'piece_name': PIECE_NAMES.get(piece_type, 'Unknown'),
+            'captured': captured_piece if captured_piece > 0 else None,
+            'captured_name': PIECE_NAMES.get(captured_piece, 'Unknown') if captured_piece > 0 else None,
+            'captured_owner': captured_owner,
+            'captured_owner_name': PLAYER_NAMES[captured_owner] if captured_owner is not None else None,
+            'promotion': promotion if promotion > 0 else None,
+            'promotion_name': PIECE_NAMES.get(promotion, None) if promotion > 0 else None,
+        }
+        move_history.append(move_log)
+
         game_state = next_state
         obs = next_obs
 
@@ -287,7 +315,7 @@ def get_valid_moves():
 @app.route('/api/debug_state', methods=['GET'])
 def get_debug_state():
     """Get comprehensive debug state including all game details."""
-    global game_state
+    global game_state, move_history
 
     if game_state is None:
         return jsonify({'error': 'Game not initialized'}), 400
@@ -305,6 +333,7 @@ def get_debug_state():
             'castling_rights': [[bool(r) for r in rights] for rights in game_state.castling_rights],
             'last_capture_move': int(game_state.last_capture_move),
         },
+        'move_history': move_history,
         'board_details': []
     }
 
