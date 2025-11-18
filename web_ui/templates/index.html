@@ -238,7 +238,7 @@
                 <div class="controls">
                     <button onclick="resetGame()">🔄 New Game</button>
                     <button onclick="undoMove()" disabled>↩️ Undo Move</button>
-                    <button onclick="copyDebugState(event)">📋 Copy Debug State</button>
+                    <button onclick="copyDebugState(event)">🐛 View Debug State</button>
                 </div>
             </div>
         </div>
@@ -516,7 +516,7 @@
             }
         }
 
-        // Copy debug state to clipboard
+        // Open debug state in new tab
         async function copyDebugState(event) {
             try {
                 const response = await fetch('/api/debug_state');
@@ -525,21 +525,20 @@
                 // Format the debug data nicely
                 const debugText = JSON.stringify(debugData, null, 2);
 
-                // Copy to clipboard
-                await navigator.clipboard.writeText(debugText);
-
-                // Show feedback to user
-                const originalText = event.target.textContent;
-                event.target.textContent = '✓ Copied!';
-                event.target.style.background = '#4caf50';
-
-                setTimeout(() => {
-                    event.target.textContent = originalText;
-                    event.target.style.background = '';
-                }, 2000);
+                // Open new tab with debug data
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.document.write('<html><head><title>4-Player Chess Debug State</title></head><body>');
+                    newWindow.document.write('<pre style="font-family: monospace; white-space: pre-wrap; word-wrap: break-word;">');
+                    newWindow.document.write(debugText);
+                    newWindow.document.write('</pre></body></html>');
+                    newWindow.document.close();
+                } else {
+                    alert('Please allow pop-ups to view debug state');
+                }
             } catch (error) {
-                console.error('Error copying debug state:', error);
-                alert('Failed to copy debug state: ' + error.message);
+                console.error('Error opening debug state:', error);
+                alert('Failed to open debug state: ' + error.message);
             }
         }
 
