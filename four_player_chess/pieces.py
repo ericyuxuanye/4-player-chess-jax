@@ -213,11 +213,14 @@ def get_sliding_moves(
     can_move_here = path_clear & is_valid & (is_empty | is_opponent)
 
     # Scatter results into moves board
+    # Use .max() instead of .set() to handle duplicate indices correctly.
+    # When out-of-bounds moves are clamped to board edges, they create duplicates.
+    # .max() will OR the boolean values together, while .set() would use only the last value.
     flat_rows = clamped_rows.flatten()
     flat_cols = clamped_cols.flatten()
     flat_mask = can_move_here.flatten()
 
-    moves = moves.at[(flat_rows, flat_cols)].set(flat_mask)
+    moves = moves.at[(flat_rows, flat_cols)].max(flat_mask)
 
     return moves
 
