@@ -216,17 +216,20 @@ def _compute_between_squares():
                 if valid_mask[r, c]:
                     between_idx = coord_to_idx[r, c]
                     if between_idx >= 0:
-                        between_list.append(between_idx)
+                        # Store FLAT BOARD INDEX, not valid square index
+                        # The code using this table expects flat indices for row/col calculation
+                        flat_idx = r * BOARD_SIZE + c
+                        between_list.append(flat_idx)
                 r += step_r
                 c += step_c
-                
+
                 # Safety check
                 if len(between_list) >= 12:
                     break
-            
-            # Store in BETWEEN table
-            for i, sq_idx in enumerate(between_list):
-                BETWEEN[src_idx, dest_idx, i] = sq_idx
+
+            # Store in BETWEEN table (now contains flat board indices)
+            for i, flat_idx in enumerate(between_list):
+                BETWEEN[src_idx, dest_idx, i] = flat_idx
     
     return jnp.array(BETWEEN, dtype=jnp.int32)
 
