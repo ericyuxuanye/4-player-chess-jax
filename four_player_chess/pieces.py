@@ -194,8 +194,8 @@ def get_sliding_moves(
     target_owner = board[clamped_rows, clamped_cols, CHANNEL_OWNER]      # (n_dirs, max_dist)
 
     is_valid = jnp.where(in_bounds, valid_mask[clamped_rows, clamped_cols] > 0, False)
-    is_empty = (target_piece == EMPTY) & in_bounds
-    is_opponent = (target_piece != EMPTY) & (target_owner != p) & in_bounds
+    is_empty = (target_piece == EMPTY) & in_bounds & is_valid
+    is_opponent = (target_piece != EMPTY) & (target_owner != p) & in_bounds & is_valid
 
     # Determine if path to each distance is clear (all previous squares empty)
     empties_int = is_empty.astype(jnp.int32)
