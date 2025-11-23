@@ -194,3 +194,40 @@ ASCII_PIECES_SIMPLE = {
     (GREEN, PAWN): "gP", (GREEN, KNIGHT): "gN", (GREEN, BISHOP): "gB",
     (GREEN, ROOK): "gR", (GREEN, QUEEN): "gQ", (GREEN, KING): "gK",
 }
+
+# Castling constants
+# Castling rights indices
+QUEENSIDE_CASTLING = 0
+KINGSIDE_CASTLING = 1
+
+# Initial king positions for each player
+INITIAL_KING_POSITIONS = {
+    RED: jnp.array([13, 7], dtype=jnp.int32),
+    BLUE: jnp.array([7, 13], dtype=jnp.int32),
+    YELLOW: jnp.array([0, 6], dtype=jnp.int32),
+    GREEN: jnp.array([6, 0], dtype=jnp.int32),
+}
+
+# Initial rook positions for each player [queenside_rook, kingside_rook]
+INITIAL_ROOK_POSITIONS = {
+    RED: jnp.array([[13, 3], [13, 10]], dtype=jnp.int32),
+    BLUE: jnp.array([[3, 13], [10, 13]], dtype=jnp.int32),
+    YELLOW: jnp.array([[0, 3], [0, 10]], dtype=jnp.int32),
+    GREEN: jnp.array([[3, 0], [10, 0]], dtype=jnp.int32),
+}
+
+# Castling destination squares: king_dest, rook_dest for each player
+# Format: {player: {QUEENSIDE: [king_dest, rook_dest], KINGSIDE: [king_dest, rook_dest]}}
+CASTLING_KING_DESTINATIONS = {
+    RED: jnp.array([[13, 5], [13, 9]], dtype=jnp.int32),      # [queenside, kingside]
+    BLUE: jnp.array([[5, 13], [9, 13]], dtype=jnp.int32),
+    YELLOW: jnp.array([[0, 4], [0, 8]], dtype=jnp.int32),
+    GREEN: jnp.array([[4, 0], [8, 0]], dtype=jnp.int32),
+}
+
+CASTLING_ROOK_DESTINATIONS = {
+    RED: jnp.array([[13, 6], [13, 8]], dtype=jnp.int32),      # [queenside, kingside]
+    BLUE: jnp.array([[6, 13], [8, 13]], dtype=jnp.int32),
+    YELLOW: jnp.array([[0, 5], [0, 7]], dtype=jnp.int32),
+    GREEN: jnp.array([[5, 0], [7, 0]], dtype=jnp.int32),
+}

@@ -14,7 +14,10 @@ from four_player_chess.constants import (
     CHANNEL_PIECE_TYPE, CHANNEL_OWNER, CHANNEL_HAS_MOVED,
     KNIGHT_OFFSETS, KING_OFFSETS, BISHOP_DIRECTIONS, ROOK_DIRECTIONS, QUEEN_DIRECTIONS,
     PAWN_FORWARD, PAWN_DOUBLE_FORWARD, PAWN_CAPTURES,
-    PAWN_START_RANKS, PROMOTION_RANKS
+    PAWN_START_RANKS, PROMOTION_RANKS,
+    QUEENSIDE_CASTLING, KINGSIDE_CASTLING,
+    INITIAL_KING_POSITIONS, INITIAL_ROOK_POSITIONS,
+    CASTLING_KING_DESTINATIONS, CASTLING_ROOK_DESTINATIONS
 )
 from four_player_chess.utils import dict_to_jax_array
 
@@ -231,25 +234,27 @@ def get_king_moves(
     row: chex.Numeric,
     col: chex.Numeric,
     player: chex.Numeric,
-    valid_mask: chex.Array
+    valid_mask: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
-    Get all legal king moves from a given position.
-    
+    Get all legal king moves from a given position, including castling.
+
     Note: This does not check if moves leave king in check - that's done separately.
-    
+
     Returns:
         Boolean array of shape (14, 14) indicating legal destination squares
     """
     moves = jnp.zeros((BOARD_SIZE, BOARD_SIZE), dtype=jnp.bool_)
-    
-    for i in range(8):  # 8 adjacent squares
+
+    # Regular king moves: 8 adjacent squares
+    for i in range(8):
         new_row = row + KING_OFFSETS[i, 0]
         new_col = col + KING_OFFSETS[i, 1]
-        
+
         in_bounds = (new_row >= 0) & (new_row < BOARD_SIZE) & (new_col >= 0) & (new_col < BOARD_SIZE)
         is_valid = jnp.where(in_bounds, valid_mask[new_row, new_col] > 0, False)
-        
+
         # Can move to empty square or capture opponent
         # Note: Empty squares have owner=0, which conflicts with Red player (also 0)
         # So we need to check piece type as well
@@ -257,10 +262,128 @@ def get_king_moves(
         target_owner = jnp.where(in_bounds, board[new_row, new_col, CHANNEL_OWNER], player)
         is_empty_or_opponent = (target_piece == EMPTY) | (target_owner != player)
         can_move = is_valid & is_empty_or_opponent
-        
+
         moves = jnp.where(can_move, moves.at[new_row, new_col].set(True), moves)
-    
+
+    # Castling moves
+    if castling_rights is not None:
+        # Check if king is on its initial square
+        initial_king_pos = dict_to_jax_array(INITIAL_KING_POSITIONS)[player]
+        on_initial_square = (row == initial_king_pos[0]) & (col == initial_king_pos[1])
+
+        # Check if king has moved
+        king_has_moved = board[row, col, CHANNEL_HAS_MOVED] > 0
+        can_castle = on_initial_square & (~king_has_moved)
+
+        # Get castling info for this player
+        rook_positions = dict_to_jax_array(INITIAL_ROOK_POSITIONS)[player]  # (2, 2) array
+        king_destinations = dict_to_jax_array(CASTLING_KING_DESTINATIONS)[player]  # (2, 2) array
+
+        # Check both queenside and kingside castling
+        for side in [QUEENSIDE_CASTLING, KINGSIDE_CASTLING]:
+            # Check if we have castling rights for this side
+            has_castling_right = castling_rights[player, side]
+
+            # Get rook position for this side
+            rook_row = rook_positions[side, 0]
+            rook_col = rook_positions[side, 1]
+
+            # Check if rook is still there and hasn't moved
+            rook_present = board[rook_row, rook_col, CHANNEL_PIECE_TYPE] == ROOK
+            rook_is_ours = board[rook_row, rook_col, CHANNEL_OWNER] == player
+            rook_not_moved = board[rook_row, rook_col, CHANNEL_HAS_MOVED] == 0
+            rook_ok = rook_present & rook_is_ours & rook_not_moved
+
+            # Check if squares between king and rook are empty
+            # Need to check different squares based on player orientation and side
+            path_clear = check_castling_path(board, row, col, rook_row, rook_col, player, side)
+
+            # If all conditions met, add castling destination
+            can_castle_this_side = can_castle & has_castling_right & rook_ok & path_clear
+            king_dest_row = king_destinations[side, 0]
+            king_dest_col = king_destinations[side, 1]
+
+            moves = jnp.where(
+                can_castle_this_side,
+                moves.at[king_dest_row, king_dest_col].set(True),
+                moves
+            )
+
     return moves
+
+
+def check_castling_path(
+    board: chex.Array,
+    king_row: chex.Numeric,
+    king_col: chex.Numeric,
+    rook_row: chex.Numeric,
+    rook_col: chex.Numeric,
+    player: chex.Numeric,
+    side: chex.Numeric
+) -> chex.Array:
+    """
+    Check if the path between king and rook is clear for castling.
+
+    Returns:
+        Boolean indicating if path is clear
+    """
+    # For Red and Yellow (horizontal castling), check columns between king and rook
+    # For Blue and Green (vertical castling), check rows between king and rook
+    is_horizontal = (player == RED) | (player == YELLOW)
+
+    # Get the range of squares to check based on side and player
+    # For queenside: check squares between rook and king (excluding both)
+    # For kingside: check squares between king and rook (excluding both)
+
+    def check_horizontal():
+        # For horizontal players, king and rook are on same row
+        # Queenside: rook_col < king_col, check cols between
+        # Kingside: king_col < rook_col, check cols between
+        is_queenside = side == QUEENSIDE_CASTLING
+
+        # Queenside checks columns between rook and king (3 squares)
+        # Kingside checks columns between king and rook (2 squares)
+        # Pad kingside to 3 squares with -1 (invalid)
+        queenside_cols = jnp.array([rook_col + 1, rook_col + 2, rook_col + 3], dtype=jnp.int32)
+        kingside_cols = jnp.array([king_col + 1, king_col + 2, -1], dtype=jnp.int32)
+
+        cols_to_check = jnp.where(is_queenside, queenside_cols, kingside_cols)
+
+        # Check if all squares are empty
+        def check_col(col):
+            # Invalid col (padding) is always True (doesn't block)
+            is_valid_col = col >= 0
+            is_empty = board[king_row, jnp.maximum(col, 0), CHANNEL_PIECE_TYPE] == EMPTY
+            return (~is_valid_col) | is_empty
+
+        checks = jax.vmap(check_col)(cols_to_check)
+        return jnp.all(checks)
+
+    def check_vertical():
+        # For vertical players, king and rook are on same column
+        # Queenside: rook_row < king_row, check rows between
+        # Kingside: king_row < rook_row, check rows between
+        is_queenside = side == QUEENSIDE_CASTLING
+
+        # Queenside checks rows between rook and king (3 squares)
+        # Kingside checks rows between king and rook (2 squares)
+        # Pad kingside to 3 squares with -1 (invalid)
+        queenside_rows = jnp.array([rook_row + 1, rook_row + 2, rook_row + 3], dtype=jnp.int32)
+        kingside_rows = jnp.array([king_row + 1, king_row + 2, -1], dtype=jnp.int32)
+
+        rows_to_check = jnp.where(is_queenside, queenside_rows, kingside_rows)
+
+        # Check if all squares are empty
+        def check_row(row):
+            # Invalid row (padding) is always True (doesn't block)
+            is_valid_row = row >= 0
+            is_empty = board[jnp.maximum(row, 0), king_col, CHANNEL_PIECE_TYPE] == EMPTY
+            return (~is_valid_row) | is_empty
+
+        checks = jax.vmap(check_row)(rows_to_check)
+        return jnp.all(checks)
+
+    return jax.lax.cond(is_horizontal, check_horizontal, check_vertical)
 
 
 def get_pseudo_legal_moves(
@@ -269,14 +392,15 @@ def get_pseudo_legal_moves(
     col: chex.Numeric,
     player: chex.Numeric,
     valid_mask: chex.Array,
-    en_passant_square: chex.Array
+    en_passant_square: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
     Get all pseudo-legal moves for a piece at a given position.
-    
+
     "Pseudo-legal" means the moves follow piece movement rules but may leave
     the king in check. Full legality checking is done separately.
-    
+
     Args:
         board: Board state array (14, 14, 4)
         row: Row of the piece
@@ -284,50 +408,51 @@ def get_pseudo_legal_moves(
         player: Player who owns the piece
         valid_mask: Valid square mask
         en_passant_square: En passant target square
-    
+        castling_rights: Castling rights array (4, 2)
+
     Returns:
         Boolean array of shape (14, 14) indicating pseudo-legal destination squares
     """
     piece_type = board[row, col, CHANNEL_PIECE_TYPE]
     piece_owner = board[row, col, CHANNEL_OWNER]
-    
+
     # Get moves based on piece type
     moves = jnp.where(
         piece_type == PAWN,
         get_pawn_moves(board, row, col, player, valid_mask, en_passant_square),
         jnp.zeros((BOARD_SIZE, BOARD_SIZE), dtype=jnp.bool_)
     )
-    
+
     moves = jnp.where(
         piece_type == KNIGHT,
         get_knight_moves(board, row, col, player, valid_mask),
         moves
     )
-    
+
     moves = jnp.where(
         piece_type == BISHOP,
         get_sliding_moves(board, row, col, player, valid_mask, BISHOP_DIRECTIONS),
         moves
     )
-    
+
     moves = jnp.where(
         piece_type == ROOK,
         get_sliding_moves(board, row, col, player, valid_mask, ROOK_DIRECTIONS),
         moves
     )
-    
+
     moves = jnp.where(
         piece_type == QUEEN,
         get_sliding_moves(board, row, col, player, valid_mask, QUEEN_DIRECTIONS),
         moves
     )
-    
+
     moves = jnp.where(
         piece_type == KING,
-        get_king_moves(board, row, col, player, valid_mask),
+        get_king_moves(board, row, col, player, valid_mask, castling_rights),
         moves
     )
-    
+
     # Return empty moves if not the player's piece
     not_my_piece = piece_owner != player
     return jnp.where(not_my_piece, jnp.zeros((BOARD_SIZE, BOARD_SIZE), dtype=jnp.bool_), moves)

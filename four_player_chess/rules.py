@@ -12,12 +12,15 @@ from typing import Tuple
 from four_player_chess.constants import (
     BOARD_SIZE, EMPTY, KING, PAWN, BISHOP, ROOK, QUEEN,
     CHANNEL_PIECE_TYPE, CHANNEL_OWNER,
-    NUM_PLAYERS, INACTIVE_PLAYER
+    NUM_PLAYERS, INACTIVE_PLAYER,
+    QUEENSIDE_CASTLING, KINGSIDE_CASTLING,
+    INITIAL_KING_POSITIONS, CASTLING_KING_DESTINATIONS, CASTLING_ROOK_DESTINATIONS
 )
 from four_player_chess.pieces import get_pseudo_legal_moves, can_piece_attack_square
 from four_player_chess.precompute import (
     LEGAL_DEST_NEAR_4P, LEGAL_DEST_FAR_4P, BETWEEN_4P, CAN_MOVE_4P, COORD_TO_IDX
 )
+from four_player_chess.utils import dict_to_jax_array
 
 
 def is_square_attacked(
@@ -160,7 +163,8 @@ def get_all_legal_moves_for_player(
     king_position: chex.Array,
     player_active: chex.Array,
     valid_mask: chex.Array,
-    en_passant_square: chex.Array
+    en_passant_square: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
     JIT-friendly, vectorized version to get all legal moves for a player.
@@ -178,7 +182,7 @@ def get_all_legal_moves_for_player(
         is_my_piece = (piece_owner == player) & (piece_type != EMPTY) & is_valid_square
 
         pseudo_legal = get_pseudo_legal_moves(
-            board, sr, sc, player, valid_mask, en_passant_square
+            board, sr, sc, player, valid_mask, en_passant_square, castling_rights
         )
 
         def check_dest(dr: jnp.int32, dc: jnp.int32):
@@ -222,16 +226,17 @@ def has_legal_moves(
     king_position: chex.Array,
     player_active: chex.Array,
     valid_mask: chex.Array,
-    en_passant_square: chex.Array
+    en_passant_square: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
     Check if a player has any legal moves.
-    
+
     Returns:
         Boolean indicating if player has at least one legal move
     """
     legal_moves = get_all_legal_moves_for_player(
-        board, player, king_position, player_active, valid_mask, en_passant_square
+        board, player, king_position, player_active, valid_mask, en_passant_square, castling_rights
     )
     return jnp.any(legal_moves)
 
@@ -242,21 +247,22 @@ def is_checkmate(
     king_position: chex.Array,
     player_active: chex.Array,
     valid_mask: chex.Array,
-    en_passant_square: chex.Array
+    en_passant_square: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
     Check if a player is checkmated.
-    
+
     Checkmate occurs when:
     1. King is in check
     2. Player has no legal moves
-    
+
     Returns:
         Boolean indicating checkmate
     """
     in_check = is_in_check(board, king_position, player, player_active, valid_mask)
-    has_moves = has_legal_moves(board, player, king_position, player_active, valid_mask, en_passant_square)
-    
+    has_moves = has_legal_moves(board, player, king_position, player_active, valid_mask, en_passant_square, castling_rights)
+
     # Checkmate = in check AND no legal moves
     return in_check & (~has_moves)
 
@@ -267,21 +273,22 @@ def is_stalemate(
     king_position: chex.Array,
     player_active: chex.Array,
     valid_mask: chex.Array,
-    en_passant_square: chex.Array
+    en_passant_square: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
     Check if a player is stalemated.
-    
+
     Stalemate occurs when:
     1. King is NOT in check
     2. Player has no legal moves
-    
+
     Returns:
         Boolean indicating stalemate
     """
     in_check = is_in_check(board, king_position, player, player_active, valid_mask)
-    has_moves = has_legal_moves(board, player, king_position, player_active, valid_mask, en_passant_square)
-    
+    has_moves = has_legal_moves(board, player, king_position, player_active, valid_mask, en_passant_square, castling_rights)
+
     # Stalemate = NOT in check AND no legal moves
     return (~in_check) & (~has_moves)
 
@@ -296,54 +303,107 @@ def is_move_legal(
     king_position: chex.Array,
     player_active: chex.Array,
     valid_mask: chex.Array,
-    en_passant_square: chex.Array
+    en_passant_square: chex.Array,
+    castling_rights: chex.Array = None
 ) -> chex.Array:
     """
     Check if a specific move is legal.
-    
+
     Returns:
         Boolean indicating if the move is legal
     """
     # Check piece ownership
     piece_owner = board[source_row, source_col, CHANNEL_OWNER]
     piece_type = board[source_row, source_col, CHANNEL_PIECE_TYPE]
-    
+
     # Use jnp.where instead of if statements for JAX compatibility
     wrong_owner = piece_owner != player
     is_empty = piece_type == EMPTY
     invalid_piece = wrong_owner | is_empty
-    
+
     # Check if destination is valid
     # Note: valid_mask contains int32 values (0 or 1), so convert to bool before negating
     invalid_dest = valid_mask[dest_row, dest_col] == 0
-    
+
     # Get pseudo-legal moves
     pseudo_legal = get_pseudo_legal_moves(
-        board, source_row, source_col, player, valid_mask, en_passant_square
+        board, source_row, source_col, player, valid_mask, en_passant_square, castling_rights
     )
-    
+
     not_pseudo_legal = ~pseudo_legal[dest_row, dest_col]
-    
+
     # Early return using jnp.where
     # If any basic checks fail, return False
     basic_checks_fail = invalid_piece | invalid_dest | not_pseudo_legal
-    
+
+    # Check if this is a castling move
+    is_king = piece_type == KING
+    initial_king_pos = dict_to_jax_array(INITIAL_KING_POSITIONS)[player]
+    on_initial_square = (source_row == initial_king_pos[0]) & (source_col == initial_king_pos[1])
+
+    # Check if king moved 2 squares (indicates castling)
+    king_destinations = dict_to_jax_array(CASTLING_KING_DESTINATIONS)[player]
+    is_castling_dest = ((dest_row == king_destinations[0, 0]) & (dest_col == king_destinations[0, 1])) | \
+                       ((dest_row == king_destinations[1, 0]) & (dest_col == king_destinations[1, 1]))
+    is_castling = is_king & on_initial_square & is_castling_dest
+
+    # For castling, need additional checks:
+    # 1. King is not currently in check
+    # 2. King doesn't pass through check
+    # 3. King doesn't end in check (checked below like normal moves)
+    def check_castling_validity(_):
+        # Check if king is currently in check
+        currently_in_check = is_in_check(board, king_position, player, player_active, valid_mask)
+
+        # Determine which side (queenside or kingside)
+        is_queenside = (dest_row == king_destinations[0, 0]) & (dest_col == king_destinations[0, 1])
+
+        # Get intermediate square the king passes through
+        # For horizontal players (Red, Yellow): check column between source and dest
+        # For vertical players (Blue, Green): check row between source and dest
+        is_horizontal = (player == 0) | (player == 2)  # RED or YELLOW
+
+        # Calculate intermediate position
+        inter_row = jnp.where(is_horizontal, source_row,
+                             jnp.where(is_queenside, source_row - 1, source_row + 1))
+        inter_col = jnp.where(is_horizontal,
+                             jnp.where(is_queenside, source_col - 1, source_col + 1),
+                             source_col)
+
+        # Check if any opponent attacks the intermediate square
+        def check_opponent_attacks(opponent):
+            is_opponent = opponent != player
+            is_active = player_active[opponent]
+            should_check = is_opponent & is_active
+            attacked = is_square_attacked(board, inter_row, inter_col, opponent, valid_mask)
+            return should_check & attacked
+
+        opponent_attacks = jax.vmap(check_opponent_attacks)(jnp.arange(NUM_PLAYERS))
+        passes_through_check = jnp.any(opponent_attacks)
+
+        return currently_in_check | passes_through_check
+
+    def no_castling_check(_):
+        return jnp.bool_(False)
+
+    castling_invalid = jax.lax.cond(is_castling, check_castling_validity, no_castling_check, None)
+
     # Simulate move and check for check
     test_board = board.copy()
     test_board = test_board.at[dest_row, dest_col, CHANNEL_PIECE_TYPE].set(piece_type)
     test_board = test_board.at[dest_row, dest_col, CHANNEL_OWNER].set(player)
     test_board = test_board.at[source_row, source_col, CHANNEL_PIECE_TYPE].set(EMPTY)
     test_board = test_board.at[source_row, source_col, CHANNEL_OWNER].set(0)
-    
+
     # Update king position if moved
     test_king_pos = jnp.where(
         piece_type == KING,
         jnp.array([dest_row, dest_col], dtype=jnp.int32),
         king_position
     )
-    
+
     # Check if king is in check after move
     in_check_after = is_in_check(test_board, test_king_pos, player, player_active, valid_mask)
-    
-    # Return False if basic checks fail, otherwise return whether king is not in check
-    return jnp.where(basic_checks_fail, False, ~in_check_after)
+
+    # Return False if basic checks fail or castling invalid, otherwise return whether king is not in check
+    return jnp.where(basic_checks_fail | castling_invalid, False, ~in_check_after)

@@ -17,7 +17,10 @@ from four_player_chess.constants import (
     EMPTY, PAWN, KING, QUEEN, ROOK,
     RED, BLUE, YELLOW, GREEN,
     CHANNEL_PIECE_TYPE, CHANNEL_OWNER, CHANNEL_HAS_MOVED,
-    PROMOTE_QUEEN, PROMOTION_RANKS
+    PROMOTE_QUEEN, PROMOTION_RANKS,
+    QUEENSIDE_CASTLING, KINGSIDE_CASTLING,
+    INITIAL_KING_POSITIONS, INITIAL_ROOK_POSITIONS,
+    CASTLING_KING_DESTINATIONS, CASTLING_ROOK_DESTINATIONS
 )
 from four_player_chess.board import (
     create_initial_board, create_valid_square_mask,
@@ -166,19 +169,63 @@ class FourPlayerChessEnv:
             state.king_positions[current_player],
             state.player_active,
             self.valid_mask,
-            state.en_passant_square
+            state.en_passant_square,
+            state.castling_rights
         )
         
         # Get piece being moved
         piece_type, piece_owner = get_piece_at(state.board, source_row, source_col)
-        
+
         # Get captured piece (if any)
         captured_piece, captured_owner = get_piece_at(state.board, dest_row, dest_col)
-        
+
+        # Check if this is a castling move
+        from four_player_chess.utils import dict_to_jax_array
+        initial_king_pos = dict_to_jax_array(INITIAL_KING_POSITIONS)[current_player]
+        on_initial_square = (source_row == initial_king_pos[0]) & (source_col == initial_king_pos[1])
+        king_destinations = dict_to_jax_array(CASTLING_KING_DESTINATIONS)[current_player]
+        is_castling_dest = ((dest_row == king_destinations[0, 0]) & (dest_col == king_destinations[0, 1])) | \
+                           ((dest_row == king_destinations[1, 0]) & (dest_col == king_destinations[1, 1]))
+        is_castling = (piece_type == KING) & on_initial_square & is_castling_dest
+
+        # Determine which side of castling (if applicable)
+        is_queenside_castling = is_castling & (dest_row == king_destinations[0, 0]) & (dest_col == king_destinations[0, 1])
+        is_kingside_castling = is_castling & (dest_row == king_destinations[1, 0]) & (dest_col == king_destinations[1, 1])
+
+        # Get rook positions for castling
+        rook_positions = dict_to_jax_array(INITIAL_ROOK_POSITIONS)[current_player]
+        rook_destinations = dict_to_jax_array(CASTLING_ROOK_DESTINATIONS)[current_player]
+
         # Execute the move on the board (will be selected later based on move_legal)
         new_board = state.board
         new_board = set_piece_at(new_board, dest_row, dest_col, piece_type, current_player, has_moved=True)
         new_board = clear_square(new_board, source_row, source_col)
+
+        # If castling, also move the rook
+        queenside_rook_src = rook_positions[QUEENSIDE_CASTLING]
+        queenside_rook_dest = rook_destinations[QUEENSIDE_CASTLING]
+        kingside_rook_src = rook_positions[KINGSIDE_CASTLING]
+        kingside_rook_dest = rook_destinations[KINGSIDE_CASTLING]
+
+        # Move queenside rook if queenside castling
+        new_board = jnp.where(
+            is_queenside_castling,
+            set_piece_at(
+                clear_square(new_board, queenside_rook_src[0], queenside_rook_src[1]),
+                queenside_rook_dest[0], queenside_rook_dest[1], ROOK, current_player, has_moved=True
+            ),
+            new_board
+        )
+
+        # Move kingside rook if kingside castling
+        new_board = jnp.where(
+            is_kingside_castling,
+            set_piece_at(
+                clear_square(new_board, kingside_rook_src[0], kingside_rook_src[1]),
+                kingside_rook_dest[0], kingside_rook_dest[1], ROOK, current_player, has_moved=True
+            ),
+            new_board
+        )
         
         # Handle pawn promotion - use jnp.where instead of if
         # RED and YELLOW move vertically (check row), BLUE and GREEN move horizontally (check col)
@@ -292,7 +339,8 @@ class FourPlayerChessEnv:
             new_king_positions[next_player],
             player_active_after_king_capture,
             self.valid_mask,
-            new_en_passant
+            new_en_passant,
+            state.castling_rights
         )
 
         # Checkmate = in check AND no legal moves
@@ -338,7 +386,59 @@ class FourPlayerChessEnv:
             get_next_active_player(next_player, new_player_active),
             next_player
         )
-        
+
+        # Update castling rights
+        # If king moves, lose all castling rights for that player
+        new_castling_rights = jnp.where(
+            piece_type == KING,
+            state.castling_rights.at[current_player].set(jnp.array([False, False], dtype=jnp.bool_)),
+            state.castling_rights
+        )
+
+        # If rook moves from initial position, lose castling rights for that side
+        rook_positions_player = dict_to_jax_array(INITIAL_ROOK_POSITIONS)[current_player]
+        is_queenside_rook_move = (piece_type == ROOK) & \
+                                  (source_row == rook_positions_player[QUEENSIDE_CASTLING, 0]) & \
+                                  (source_col == rook_positions_player[QUEENSIDE_CASTLING, 1])
+        is_kingside_rook_move = (piece_type == ROOK) & \
+                                 (source_row == rook_positions_player[KINGSIDE_CASTLING, 0]) & \
+                                 (source_col == rook_positions_player[KINGSIDE_CASTLING, 1])
+
+        new_castling_rights = jnp.where(
+            is_queenside_rook_move,
+            new_castling_rights.at[current_player, QUEENSIDE_CASTLING].set(False),
+            new_castling_rights
+        )
+
+        new_castling_rights = jnp.where(
+            is_kingside_rook_move,
+            new_castling_rights.at[current_player, KINGSIDE_CASTLING].set(False),
+            new_castling_rights
+        )
+
+        # If a rook is captured, the capturing player loses castling rights for that side
+        # Check if captured piece is a rook on its initial square
+        for player_idx in range(NUM_PLAYERS):
+            rook_pos_for_player = dict_to_jax_array(INITIAL_ROOK_POSITIONS)[player_idx]
+            is_queenside_rook_captured = (captured_piece == ROOK) & \
+                                         (dest_row == rook_pos_for_player[QUEENSIDE_CASTLING, 0]) & \
+                                         (dest_col == rook_pos_for_player[QUEENSIDE_CASTLING, 1])
+            is_kingside_rook_captured = (captured_piece == ROOK) & \
+                                        (dest_row == rook_pos_for_player[KINGSIDE_CASTLING, 0]) & \
+                                        (dest_col == rook_pos_for_player[KINGSIDE_CASTLING, 1])
+
+            new_castling_rights = jnp.where(
+                is_queenside_rook_captured,
+                new_castling_rights.at[player_idx, QUEENSIDE_CASTLING].set(False),
+                new_castling_rights
+            )
+
+            new_castling_rights = jnp.where(
+                is_kingside_rook_captured,
+                new_castling_rights.at[player_idx, KINGSIDE_CASTLING].set(False),
+                new_castling_rights
+            )
+
         # Create new state
         new_state = EnvState(
             board=new_board,
@@ -348,7 +448,7 @@ class FourPlayerChessEnv:
             move_count=new_move_count,
             en_passant_square=new_en_passant,
             king_positions=new_king_positions,
-            castling_rights=state.castling_rights,
+            castling_rights=new_castling_rights,
             last_capture_move=state.last_capture_move,
             promoted_pieces=new_promoted_pieces
         )
