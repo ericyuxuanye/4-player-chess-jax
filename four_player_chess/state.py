@@ -63,18 +63,22 @@ class EnvParams(NamedTuple):
     Environment parameters (hyperparameters for the game).
     These can be modified to create variants of the game.
     """
-    
+
     # Maximum number of moves before declaring a draw
     max_moves: int = 500
-    
+
     # Number of moves without progress (capture/pawn move) before draw
     no_progress_limit: int = 50
-    
+
     # Whether to use the full scoring system or simplified
     use_full_scoring: bool = True
-    
+
     # Whether to allow castling
     allow_castling: bool = True
-    
+
     # Whether to allow en passant
     allow_en_passant: bool = True
+
+    # Whether to use player-relative (ego-centric) coordinates for actions
+    # When True, actions are interpreted in each player's coordinate frame
+    use_relative_coordinates: bool = False

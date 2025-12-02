@@ -92,26 +92,33 @@ class FourPlayerChessEnv:
         return state, obs
     
     def step(
-        self, 
+        self,
         key: chex.PRNGKey,
         state: EnvState,
         action: chex.Numeric
     ) -> Tuple[EnvState, chex.Array, chex.Numeric, chex.Array, Dict[str, Any]]:
         """
         Execute one step in the environment.
-        
+
         Args:
             key: JAX random key
             state: Current environment state
             action: Action to take (integer encoding move)
-        
+                    If use_relative_coordinates=True, assumes player-relative coords
+
         Returns:
             Tuple of (next_state, observation, reward, done, info)
         """
-        # Decode action
-        source_row, source_col, dest_row, dest_col, promotion_type = decode_action(
-            action, self.valid_mask
-        )
+        # Decode action based on coordinate mode
+        if self.params.use_relative_coordinates:
+            from four_player_chess.utils import decode_action_relative
+            source_row, source_col, dest_row, dest_col, promotion_type = decode_action_relative(
+                action, state.current_player, self.valid_mask
+            )
+        else:
+            source_row, source_col, dest_row, dest_col, promotion_type = decode_action(
+                action, self.valid_mask
+            )
         
         # Execute move and get new state
         next_state, reward, move_valid = self._execute_move(
